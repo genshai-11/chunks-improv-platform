@@ -176,8 +176,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
       });
 
       if (!response.ok) {
-        const errTxt = await response.text();
-        throw new Error(`9Router error ${response.status}: ${errTxt}`);
+        throw new Error(`9Router error ${response.status}`);
       }
 
       const jsonRes = await response.json();
@@ -199,7 +198,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
 
       return res.json({ cues: processedCues, source: `9router-${nineRouterConfig.llmModel}` });
     } catch (err: any) {
-      console.error("Failed to generate cues using 9Router API:", err);
+      console.warn("Failed to generate cues using 9Router API:", err.message);
       // Fall back to local mock cues seamlessly
       return res.json({
         cues: getFallbackCuesByConfig(currentLangCode, topic || 'Chung', wordType || 'Bất kỳ', level || 'Easy', count),
@@ -225,7 +224,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
   while (attempts > 0) {
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -266,7 +265,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
     } catch (error: any) {
       lastError = error;
       attempts--;
-      console.warn(`Gemini generation attempt failed (${attempts} attempts remaining):`, error.message || error);
+      console.warn(`Gemini generation attempt failed (${attempts} attempts remaining).`);
       if (attempts > 0) {
         // Simple artificial delay before retry
         await new Promise(resolve => setTimeout(resolve, 800));
@@ -331,16 +330,14 @@ app.post("/api/stt", upload.single("file"), async (req, res) => {
     });
 
     if (!response.ok) {
-      const errTxt = await response.text();
-      console.error(`9Router STT reported error ${response.status}`, errTxt);
-      throw new Error(`9Router STT reported error: ${errTxt}`);
+      throw new Error(`9Router STT reported error ${response.status}`);
     }
 
     const data = await response.json();
     return res.json({ text: data.text || "", source: `9router-stt-${sttModel}` });
 
   } catch (error: any) {
-    console.error("STT Proxy processing failed:", error);
+    console.warn("STT Proxy processing failed:", error.message);
     return res.status(500).json({ error: error.message || "Speech transcription failed." });
   }
 });
@@ -405,8 +402,7 @@ Keep the advice very short (max 4 sentences), using highly energetic, warm langu
     });
 
     if (!response.ok) {
-      const errTxt = await response.text();
-      throw new Error(`9Router Analysis error ${response.status}: ${errTxt}`);
+      throw new Error(`9Router Analysis error ${response.status}`);
     }
 
     const data = await response.json();
@@ -414,7 +410,7 @@ Keep the advice very short (max 4 sentences), using highly energetic, warm langu
     return res.json({ analysis: resultText, source: `9router-analysis-${llmModel}` });
 
   } catch (error: any) {
-    console.error("LLM Analysis Proxy failed:", error);
+    console.warn("LLM Analysis Proxy failed:", error.message);
     return res.status(500).json({ error: error.message || "Speaking evaluation analysis failed." });
   }
 });
@@ -535,8 +531,8 @@ function readLessonsDb() {
     }
     const data = fs.readFileSync(LESSONS_FILE, "utf8");
     return JSON.parse(data);
-  } catch (err) {
-    console.error("Error reading lessons database file:", err);
+  } catch (err: any) {
+    console.warn("Error reading lessons database file:", err.message);
     return INITIAL_PRESET_LESSONS;
   }
 }
@@ -546,8 +542,8 @@ function writeLessonsDb(data: any) {
   try {
     fs.writeFileSync(LESSONS_FILE, JSON.stringify(data, null, 2), "utf8");
     return true;
-  } catch (err) {
-    console.error("Error writing lessons database file:", err);
+  } catch (err: any) {
+    console.warn("Error writing lessons database file:", err.message);
     return false;
   }
 }
@@ -590,8 +586,8 @@ async function generateAudioBase64(text: string, language: string, nineRouterCon
         const data = await response.json();
         if (data.audio) return data.audio;
       }
-    } catch (e) {
-      console.error("Internal generation audio via 9Router failed, trying Gemini:", e);
+    } catch (e: any) {
+      console.warn(`Internal generation audio via 9Router failed (${e.name || 'Error'}). Trying Gemini fallback.`);
     }
   }
 
@@ -601,7 +597,7 @@ async function generateAudioBase64(text: string, language: string, nineRouterCon
     try {
       const isVi = language === 'vi';
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         contents: [{ parts: [{ text: text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
@@ -655,25 +651,8 @@ app.post("/api/lessons", async (req, res) => {
   // Clone cues to ensure local safety
   const updatedCues = JSON.parse(JSON.stringify(cues));
 
-  // Synthesize audios for newly added cue cards in VI and EN automatically
-  for (const cue of updatedCues) {
-    try {
-      if (!cue.audioVi && cue.text) {
-        console.log(`Auto-generating database audioVi for cue: "${cue.text}"`);
-        const vtAudio = await generateAudioBase64(cue.text, "vi", nineRouterConfig);
-        if (vtAudio) cue.audioVi = vtAudio;
-      }
-      
-      const enText = cue.translation || cue.text;
-      if (!cue.audioEn && enText) {
-        console.log(`Auto-generating database audioEn for cue: "${enText}"`);
-        const enAudio = await generateAudioBase64(enText, "en", nineRouterConfig);
-        if (enAudio) cue.audioEn = enAudio;
-      }
-    } catch (err: any) {
-      console.warn(`Error generating audio for "${cue.text}":`, err.message);
-    }
-  }
+// Removed eager audio synthesis to prevent timeouts and quota limit spikes
+  // Audio will be synthesized lazily at runtime or via the explicit generate-audio endpoint
 
   const newLesson = {
     id: lessonId,
@@ -758,18 +737,6 @@ app.post("/api/lessons/seed", async (req, res) => {
   for (const sl of seedLessons) {
     const exists = lessons.some((l: any) => l.topic === sl.topic);
     if (!exists) {
-      // Synthesize sound for newly added cues!
-      for (const cue of sl.cues) {
-        try {
-          const audioVi = await generateAudioBase64(cue.text, "vi", nineRouterConfig);
-          if (audioVi) (cue as any).audioVi = audioVi;
-          
-          const audioEn = await generateAudioBase64(cue.translation || cue.text, "en", nineRouterConfig);
-          if (audioEn) (cue as any).audioEn = audioEn;
-        } catch (e) {
-          console.error(`Synthesizing seeded cue "${cue.text}" failed:`, e);
-        }
-      }
       lessons.push(sl);
       addedCount++;
     }
@@ -791,6 +758,21 @@ app.delete("/api/lessons/:id", (req, res) => {
   const filtered = lessons.filter((l: any) => l.id !== id);
   writeLessonsDb(filtered);
   res.json({ success: true, idDeleted: id });
+});
+
+// API: Update custom lesson
+app.put("/api/lessons/:id", (req, res) => {
+  const { id } = req.params;
+  const { topic } = req.body;
+  const lessons = readLessonsDb();
+  const lessonIndex = lessons.findIndex((l: any) => l.id === id);
+  if (lessonIndex > -1) {
+    if (topic) lessons[lessonIndex].topic = topic;
+    writeLessonsDb(lessons);
+    res.json({ success: true, updatedLesson: lessons[lessonIndex] });
+  } else {
+    res.status(404).json({ error: "Lesson not found" });
+  }
 });
 
 // API: Check & Generate missing audios for a lesson
@@ -839,7 +821,7 @@ app.post("/api/lessons/:id/generate-audio", async (req, res) => {
         skippedCount++;
       }
     } catch (err: any) {
-      console.error(`Error generating audio for cue "${cue.text}":`, err.message);
+      console.warn(`Error generating audio for cue "${cue.text}":`, err.message);
     }
   }
 
@@ -895,15 +877,14 @@ app.post("/api/tts", async (req, res) => {
       });
 
       if (!response.ok) {
-        const errTxt = await response.text();
-        throw new Error(`9Router TTS endpoint error ${response.status}: ${errTxt}`);
+        throw new Error(`9Router TTS endpoint error ${response.status}`);
       }
 
       const data = await response.json();
       return res.json({ audio: data.audio });
     } catch (error: any) {
-      console.error("9Router TTS process failed, cascading to fallback:", error);
-      return res.json({ fallbackLocal: true, code: "9ROUTER_ERROR", error: error.message || "9Router Speech synthesis failed." });
+      console.log(`9Router TTS process failed (${error.name || 'Error'}). Cascading to fallback.`);
+      return res.json({ fallbackLocal: true, code: "9ROUTER_ERROR", error: "9Router Speech synthesis failed due to external API err." });
     }
   }
 
@@ -915,7 +896,7 @@ app.post("/api/tts", async (req, res) => {
   try {
     const isVi = (language || 'vi') === 'vi';
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: [{ parts: [{ text: text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
@@ -999,8 +980,8 @@ async function startServer() {
       ];
       writeLessonsDb(seedLessons);
     }
-  } catch (e) {
-    console.error("Error auto-seeding Database on starup:", e);
+  } catch (e: any) {
+    console.warn("Error auto-seeding Database on starup:", e.message);
   }
 
   if (process.env.NODE_ENV !== "production") {

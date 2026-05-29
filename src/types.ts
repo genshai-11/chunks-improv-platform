@@ -26,7 +26,7 @@ export interface NineRouterConfig {
   enabled: boolean;
   url: string;      // default: http://localhost:20128 or https://api.9router.com
   apiKey: string;   // Optional bearer key
-  llmModel: string; // e.g., "openai/gpt-4o", "gemini/gemini-2.5-flash", "cc/claude-3-5-sonnet"
+  llmModel: string; // e.g., "openai/gpt-4o", "gemini/gemini-2.0-flash", "cc/claude-3-5-sonnet"
   sttModel: string; // e.g., "openai/whisper-1", "groq/whisper-large-v3", "deepgram/nova-3"
   ttsModelVi?: string; // Voice/model for Vietnamese TTS, e.g. "edge-tts/vi-VN-HoaiMyNeural"
   ttsModelEn?: string; // Voice/model for English TTS, e.g. "edge-tts/en-US-AriaNeural"

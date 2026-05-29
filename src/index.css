@@ -23,6 +23,7 @@
   --font-sans: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "Space Mono", monospace;
+  --font-stencil: "Saira Stencil One", sans-serif;
 
   @keyframes fade-in {
     from { opacity: 0; transform: translateY(8px); }

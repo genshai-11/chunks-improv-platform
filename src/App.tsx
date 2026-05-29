@@ -288,34 +288,10 @@ export default function App() {
       console.error(err);
       setError(
         err.message || 
-        "Something went wrong while communicating with the generative server. You can still proceed using robust offline fallback backups instantly."
+        "Something went wrong while communicating with the generative server. Please check your setup parameters or load an existing DB lesson."
       );
       setIsGeneratingInitial(false);
     }
-  };
-
-
-  // Provide immediate bypass if API is slow or offline
-  const handleProceedWithFallbacks = () => {
-    if (!activeConfig) return;
-    
-    // Create reliable inline presets immediately
-    const lang = activeConfig.language;
-    const backupCues: CueItem[] = lang === 'vi' ? [
-      { id: 'b1', text: "Robot thông minh", translation: "Smart robot", hint: "Nếu robot biết đi chợ nấu ăn hộ gia đình, bạn sẽ nhờ nó làm gì đầu tiên?" },
-      { id: 'b2', text: "Chuyến du hành vũ trụ", translation: "Space travel", hint: "Miêu tả hành tinh bạn tự mình chế tạo bằng trí tưởng tượng." },
-      { id: 'b3', text: "Kính viễn vọng kỳ diệu", translation: "Magic telescope", hint: "Bạn nhìn qua kính và bất ngờ thấy năm 3000 đang xảy ra việc gì?" },
-      { id: 'b4', text: "Chú mèo biết nói", translation: "Talking cat", hint: "Chú mèo nhà bạn đột nhiên bảo: 'Dậy dọn nhà đi sen'. Bạn nói lại thế nào?" },
-      { id: 'b5', text: "Bữa tiệc dưới biển cổ đại", translation: "Ancient underwater party", hint: "Món ăn gì được phục vụ tại cung điện này?" }
-    ] : [
-      { id: 'b1_en', text: "Flying skateboard", translation: "Ván trượt bay", hint: "You just did research on flying items. Explain how this skateboard works to your friend." },
-      { id: 'b2_en', text: "Island of secrets", translation: "Hòn đảo bí mật", hint: "You reached an abandoned island. You saw a giant glowing locker. What is inside?" },
-      { id: 'b3_en', text: "Pet companion droid", translation: "Người bạn robot thú cưng", hint: "How does your pet droid help you with your speaking studies?" },
-      { id: 'b4_en', text: "Time shift bracelet", translation: "Vòng đeo thời gian", hint: "Pressing the item shifts you 1 hour back. What would you change right now?" }
-    ];
-
-    setStageCues(backupCues);
-    setError(null);
   };
 
   // Turn off current runtime and back to setup cockpit console
@@ -351,7 +327,7 @@ export default function App() {
               <span className={`text-[9px] font-bold block leading-none tracking-widest mt-0.5 uppercase ${
                 theme === 'black' ? 'text-slate-500' : 'text-slate-400'
               }`}>
-                Motion • Sound • Từ vựng (Words List)
+                <span className="text-emerald-500">M</span>otion <span className="text-red-500">S</span>ound <span className="text-blue-500">E</span>motion
               </span>
             </div>
           </div>
@@ -465,17 +441,6 @@ export default function App() {
             }`}>
               Synthesizing random speaking cues and loading active parameters in a hidden buffer. This guarantees lag-free speech synthesis performance throughout class play.
             </p>
-
-            <button
-              onClick={handleProceedWithFallbacks}
-              className={`px-5 py-2.5 border rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer ${
-                theme === 'black'
-                  ? 'bg-slate-950 border-slate-900 hover:border-slate-800 text-slate-400 hover:text-white'
-                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Skip buffering & Run Backups instantly ⚡
-            </button>
           </div>
         )}
 
@@ -520,13 +485,6 @@ export default function App() {
                 }`}
               >
                 Back to Controls console
-              </button>
-              <button
-                onClick={handleProceedWithFallbacks}
-                className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Trigger Backup prompts now ⚡</span>
               </button>
             </div>
           </div>
@@ -844,7 +802,9 @@ export default function App() {
       }`}>
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>Chunks Improv Stage • Realized with 🧠 Chunks Theory speaking loops</span>
-          <span className={theme === 'black' ? 'text-slate-700' : 'text-slate-400'}>Motion • Sound • Từ vựng (Words List)</span>
+          <span className={theme === 'black' ? 'text-slate-700' : 'text-slate-400'}>
+            <span className="text-emerald-500">M</span>otion <span className="text-red-500">S</span>ound <span className="text-blue-500">E</span>motion
+          </span>
         </div>
       </footer>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SessionConfig, NineRouterConfig, CueItem } from '../types';
 import { 
   Sparkles, 
@@ -9,6 +9,7 @@ import {
   Clock, 
   Check, 
   Trash2, 
+  Edit2,
   Volume2, 
   Settings, 
   AlertCircle, 
@@ -167,7 +168,7 @@ const API_ENDPOINTS = [
       nineRouterConfig: {
         enabled: false,
         url: "http://localhost:3000",
-        llmModel: "gemini-2.5-flash",
+        llmModel: "gemini-2.0-flash",
         sttModel: "whisper-1",
         ttsModelVi: "edge-tts/vi-VN-HoaiMyNeural",
         ttsModelEn: "edge-tts/en-US-AriaNeural"
@@ -233,7 +234,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const [expandedCueId, setExpandedCueId] = useState<string | null>('d1');
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<boolean>(false);
+  const [showAiConfig, setShowAiConfig] = useState<boolean>(false);
   const [deletingLessonId, setDeletingLessonId] = useState<string | null>(null);
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editingLessonTopicName, setEditingLessonTopicName] = useState<string>("");
   const [generatingAudioLessonId, setGeneratingAudioLessonId] = useState<string | null>(null);
   const [loadedLessonId, setLoadedLessonId] = useState<string | null>(null);
   const [sampleCardCount, setSampleCardCount] = useState<number>(5);
@@ -252,41 +256,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const [sampleLang, setSampleLang] = useState<'vi' | 'en'>('vi');
   const [sampleWordType, setSampleWordType] = useState<string>('Từ đơn');
 
-  // Draft Cues - Initialized with exactly 4 elegant, multi-category cards (Draft Lesson Cards (4))
-  const [customCues, setCustomCues] = useState<CueItem[]>([
-    { 
-      id: 'd1', 
-      text: 'Chim ưng', 
-      translation: 'Falcon', 
-      category: 'motion', 
-      poseJson: '{"head": [50, 15], "spine": [[50,15], [50,55]], "leftArm": [[50,30], [20,25], [5,25]], "rightArm": [[50,30], [80,25], [95,25]], "leftLeg": [[50,55], [40,85]], "rightLeg": [[50,55], [60,85]]}' 
-    },
-    { 
-      id: 'd2', 
-      text: 'Con sói', 
-      translation: 'Wolf', 
-      category: 'sound', 
-      soundText: 'Awooooo! Awooo!' 
-    },
-    { 
-      id: 'd3', 
-      text: 'Con người', 
-      translation: 'Human', 
-      category: 'emotion' 
-    },
-    { 
-      id: 'd4', 
-      text: 'Sư tử', 
-      translation: 'Lion', 
-      category: 'emotion' 
-    },
-    { 
-      id: 'd5', 
-      text: 'Cây', 
-      translation: 'Tree', 
-      category: 'emotion' 
-    }
-  ]);
+  // Draft Cues
+  const [customCues, setCustomCues] = useState<CueItem[]>([]);
 
   // Read Database safest
   const loadLessons = async () => {
@@ -501,6 +472,31 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
     }
   };
 
+  const handleUpdateLessonTopic = async (id: string) => {
+    if (!editingLessonTopicName.trim()) {
+      setEditingLessonId(null);
+      return;
+    }
+    setDbStatusMsg("💾 Modifying lesson folder name...");
+    try {
+      const res = await fetch(`/api/lessons/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: editingLessonTopicName })
+      });
+      if (res.ok) {
+        setDbStatusMsg("✅ Xóa/Sửa tên lesson thành công!.");
+        loadLessons();
+      }
+    } catch (err: any) {
+      console.error("Update failed", err);
+      setDbStatusMsg(`❌ Update failed: ${err.message}`);
+    } finally {
+      setEditingLessonId(null);
+      setTimeout(() => setDbStatusMsg(''), 3000);
+    }
+  };
+
   const handleGenerateMissingAudio = async (lessonId: string) => {
     setGeneratingAudioLessonId(lessonId);
     setDbStatusMsg("⚡ Scanning cues & synthesizing missing audio voice clips...");
@@ -561,14 +557,15 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
         }));
 
         // 2. Save directly to DB as a lesson
-        const titleSuffix = sampleType === 'emotion' ? '(Từ vựng)' : sampleType === 'motion' ? '(Motion)' : '(Sound)';
-        const saveRes = await fetch('/api/lessons/save', {
+        const titleSuffix = sampleType === 'emotion' ? '(Emotion)' : sampleType === 'motion' ? '(Motion)' : '(Sound)';
+        const saveRes = await fetch('/api/lessons', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             topic: `${sampleTopic} ${titleSuffix}`,
             type: sampleType,
-            cues: adapted
+            cues: adapted,
+            nineRouterConfig
           })
         });
 
@@ -674,6 +671,43 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
   const handleRemoveCueItem = (id: string) => {
     setCustomCues(customCues.filter(c => c.id !== id));
+  };
+
+  const duplicateIds = useMemo(() => {
+    const seen = new Set<string>();
+    const dups = new Set<string>();
+    customCues.forEach(c => {
+      // Create a normalization key (lowercase, trimmed text)
+      const normText = c.text.toLowerCase().trim();
+      if (!normText) return;
+      if (seen.has(normText)) {
+        dups.add(c.id);
+      } else {
+        seen.add(normText);
+      }
+    });
+    return dups;
+  }, [customCues]);
+
+  const handleRemoveDuplicates = () => {
+    const seen = new Set<string>();
+    const unique: CueItem[] = [];
+    customCues.forEach(c => {
+      const normText = c.text.toLowerCase().trim();
+      // If empty card, just keep it or remove it? Better to let user manually remove empty cards 
+      if (!normText) {
+        unique.push(c);
+        return;
+      }
+      if (!seen.has(normText)) {
+        seen.add(normText);
+        unique.push(c);
+      }
+    });
+    const removedCount = customCues.length - unique.length;
+    setCustomCues(unique);
+    setDbStatusMsg(`Removed ${removedCount} duplicate card(s) ✨`);
+    setTimeout(() => setDbStatusMsg(''), 3000);
   };
 
   const testRouterConnection = async () => {
@@ -784,6 +818,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
       
       {/* Dynamic Header Section */}
       <div className="text-center mb-6">
+        <div className="flex flex-col items-center justify-center mb-4">
+          <img src="/logo.png" alt="CHUNKS" className="h-16 md:h-20 object-contain drop-shadow-md" />
+        </div>
+
         <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border mb-3 shadow-inner ${
           theme === 'black' 
             ? 'bg-red-950/20 text-red-400 border-red-900/30' 
@@ -793,10 +831,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           <span>Interactive Improv projection HUD</span>
         </div>
         
-        <h1 className={`text-3xl md:text-4xl font-display font-extrabold tracking-tight mb-2 ${headerText}`}>
-          Improv Workspace Control <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent font-serif font-normal italic">Panel</span>
+        <h1 className={`text-2xl md:text-3xl font-display font-extrabold tracking-tight mb-2 ${headerText}`}>
+          Workspace Control <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent font-serif font-normal italic">Panel</span>
         </h1>
-        <p className={`text-xs max-w-lg mx-auto leading-relaxed ${smallText}`}>
+        <p className={`text-[11px] max-w-lg mx-auto leading-relaxed ${smallText}`}>
           Switch between quick stage setups, local JSON databases, and custom 9Router LLM/Speech settings from the menu below.
         </p>
       </div>
@@ -889,12 +927,14 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 onClick={() => setActiveTab('motion')}
                 className={`py-2 px-3 rounded-lg font-bold text-[10px] md:text-xs uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   activeTab === 'motion'
-                    ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500'
                     : 'text-slate-500 hover:text-slate-400'
                 }`}
               >
-                <Flame className="w-3.5 h-3.5 animate-pulse" />
-                <span>Motion Tab</span>
+                <Flame className={`w-3.5 h-3.5 animate-pulse ${activeTab === 'motion' ? '' : 'text-emerald-500'}`} />
+                <span>
+                  <span className={activeTab === 'motion' ? '' : 'text-emerald-500'}>M</span>otion
+                </span>
               </button>
 
               <button
@@ -906,8 +946,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     : 'text-slate-500 hover:text-slate-400'
                 }`}
               >
-                <Volume2 className="w-3.5 h-3.5 animate-bounce text-red-500" />
-                <span>Sound Tab</span>
+                <Volume2 className={`w-3.5 h-3.5 animate-bounce ${activeTab === 'sound' ? '' : 'text-red-500'}`} />
+                <span>
+                  <span className={activeTab === 'sound' ? '' : 'text-red-500'}>S</span>ound
+                </span>
               </button>
 
               <button
@@ -919,40 +961,67 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     : 'text-slate-500 hover:text-slate-400'
                 }`}
               >
-                <Brain className="w-3.5 h-3.5 text-blue-500" />
-                <span>Từ vựng (Words list)</span>
+                <Brain className={`w-3.5 h-3.5 ${activeTab === 'emotion' ? '' : 'text-blue-500'}`} />
+                <span>
+                  <span className={activeTab === 'emotion' ? '' : 'text-blue-500'}>E</span>motion (Ideas)
+                </span>
               </button>
             </div>
 
             {/* Stage Options */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
               <div className="md:col-span-8 flex flex-col gap-3">
+                <div className="mb-2">
+                  <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText} mb-1.5`}>
+                    Chủ đề / Tên bài học (Topic / Lesson Name)
+                  </label>
+                  <input
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="e.g. Chủ đề bài học..."
+                    className={`w-full px-4 py-3 rounded-xl border text-xs font-bold focus:outline-none focus:ring-1 focus:ring-red-500 leading-none shadow-sm ${innerBg}`}
+                    required
+                  />
+                </div>
+
                 <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>
-                  Active Lesson Name / Topic
+                  Select Saved Lesson from Database
                 </label>
-                <input
-                  type="text"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g. Thế giới đại dương tinh nghịch..."
-                  className={`w-full px-4 py-3 rounded-xl border text-xs font-bold focus:outline-none focus:ring-1 focus:ring-red-500 leading-none ${innerBg}`}
-                  required
-                />
+                <select
+                  value={loadedLessonId || ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (!selectedId) {
+                      setLoadedLessonId(null);
+                      setTopic("");
+                      setCustomCues([]);
+                      return;
+                    }
+                    const les = savedLessons.find((l: any) => l.id === selectedId);
+                    if (les) {
+                      handleLoadLesson(les);
+                    }
+                  }}
+                  className={`w-full px-4 py-3 rounded-xl border text-xs font-bold focus:outline-none focus:ring-1 focus:ring-red-500 leading-none cursor-pointer ${innerBg}`}
+                >
+                  <option value="" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>-- Create New Lesson --</option>
+                  {savedLessons.map((les: any) => (
+                    <option key={les.id} value={les.id} className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>
+                      {les.topic} ({les.cues?.length || 0} cues)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="md:col-span-4 flex items-end gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={handleGenerateViaLLM}
-                  disabled={aiGenerating}
-                  className="flex-1 py-3 bg-[#E11D48] hover:bg-[#BE123C] text-white rounded-xl text-xs font-black transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/10 disabled:opacity-50"
+                  onClick={() => setShowAiConfig(!showAiConfig)}
+                  className="flex-1 py-3 bg-[#E11D48] hover:bg-[#BE123C] text-white rounded-xl text-xs font-black transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/10"
                 >
-                  {aiGenerating ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Brain className="w-3.5 h-3.5" />
-                  )}
-                  <span>{aiGenerating ? "Generating..." : "AI Autogen ⚡"}</span>
+                  <Brain className="w-3.5 h-3.5" />
+                  <span>{showAiConfig ? "Hide AI Options" : "AI Autogen ⚡"}</span>
                 </button>
 
                 <button
@@ -970,6 +1039,87 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 </button>
               </div>
             </div>
+
+            {/* AI Autogen Options Box */}
+            {showAiConfig && (
+              <div className={`p-4 rounded-xl border animate-scale-up ${
+                theme === 'black' ? 'bg-[#120B0B] border-rose-950' : 'bg-rose-50 border-rose-100'
+              }`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain className="w-4 h-4 text-red-500" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-red-500">
+                    Tạo Bài Học Mở Rộng Bằng AI
+                  </h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="space-y-1.5">
+                    <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Loại từ (Word Type)</label>
+                    <select
+                      value={wordType}
+                      onChange={(e) => setWordType(e.target.value)}
+                      className={`w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                    >
+                      <option value="Bất kỳ">Bất kỳ (Any)</option>
+                      <option value="Danh từ">Danh từ (Noun)</option>
+                      <option value="Động từ">Động từ (Verb)</option>
+                      <option value="Tính từ">Tính từ (Adjective)</option>
+                      <option value="Dạng câu hỏi">Dạng câu hỏi (Question)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Level Challenge</label>
+                    <select
+                      value={level}
+                      onChange={(e) => setLevel(e.target.value as any)}
+                      className={`w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                    >
+                      <option value="Easy">Dễ (Easy)</option>
+                      <option value="Medium">Vừa (Medium)</option>
+                      <option value="Hard">Khó (Hard)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Số lượng thẻ (Cues)</label>
+                    <select
+                      value={sampleCardCount}
+                      onChange={(e) => setSampleCardCount(Number(e.target.value))}
+                      className={`w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                    >
+                      <option value={3}>3 Thẻ</option>
+                      <option value={5}>5 Thẻ</option>
+                      <option value={8}>8 Thẻ</option>
+                      <option value={10}>10 Thẻ</option>
+                      <option value={15}>15 Thẻ</option>
+                      <option value={20}>20 Thẻ</option>
+                      <option value={30}>30 Thẻ</option>
+                      <option value={40}>40 Thẻ</option>
+                      <option value={50}>50 Thẻ</option>
+                      <option value={100}>100 Thẻ</option>
+                      <option value={150}>150 Thẻ</option>
+                      <option value={200}>200 Thẻ</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleGenerateViaLLM();
+                      setShowAiConfig(false);
+                    }}
+                    disabled={aiGenerating}
+                    className="w-full md:w-auto px-8 py-3 bg-[#E11D48] hover:bg-[#BE123C] text-white rounded-xl text-xs font-black transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                  >
+                    {aiGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    <span>{aiGenerating ? "Generating..." : "Generate List Now ⚡"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* AI Generation Loading Wave Overlay */}
             {aiGenerating && (
@@ -1021,6 +1171,22 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 </div>
 
                 <div className="flex flex-wrap gap-2 shrink-0">
+                  {duplicateIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveDuplicates}
+                      className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all animate-pulse ${
+                        theme === 'black' 
+                          ? 'bg-red-950/20 hover:bg-red-900/40 border-red-900 text-red-500' 
+                          : 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700 shadow-xs'
+                      }`}
+                      title={`Đã tìm thấy ${duplicateIds.size} thẻ bị trùng lặp. Nhấn để xoá ngay.`}
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>Xóa trùng ({duplicateIds.size})</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleAutoClassifyAndSave}
@@ -1073,14 +1239,17 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   {customCues.map((cue, idx) => {
                     const currentCategory = cue.category || 'emotion';
                     const isExpanded = expandedCueId === cue.id;
+                    const isDup = duplicateIds.has(cue.id);
 
                     return (
                       <div 
                         key={cue.id} 
                         className={`p-3 rounded-xl border relative flex flex-col transition-all duration-250 ease-in-out group ${
-                          isExpanded 
-                            ? (theme === 'black' ? 'bg-[#150909]/40 border-red-500/35 ring-1 ring-red-500/20' : 'bg-indigo-50/20 border-indigo-500/35 shadow-xs') 
-                            : (theme === 'black' ? 'bg-neutral-950/50 hover:bg-neutral-955 border-neutral-900' : 'bg-white hover:bg-slate-50/75 border-slate-200 shadow-3xs')
+                          isDup 
+                            ? (theme === 'black' ? 'bg-red-950/10 border-red-500/50 ring-1 ring-red-500/20' : 'bg-red-50/50 border-red-500/50')
+                            : isExpanded 
+                              ? (theme === 'black' ? 'bg-[#150909]/40 border-red-500/35 ring-1 ring-red-500/20' : 'bg-indigo-50/20 border-indigo-500/35 shadow-xs') 
+                              : (theme === 'black' ? 'bg-neutral-950/50 hover:bg-neutral-955 border-neutral-900' : 'bg-white hover:bg-slate-50/75 border-slate-200 shadow-3xs')
                         }`}
                       >
                         {/* Collapsed Header / Toggler Row */}
@@ -1093,17 +1262,23 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded leading-none shrink-0 ${
                               currentCategory === 'motion' ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500' :
-                              currentCategory === 'sound' ? 'bg-red-500/10 border border-red-500/30 text-rose-500' :
+                              currentCategory === 'sound' ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500' :
                               'bg-blue-500/10 border border-blue-500/30 text-blue-500'
                             }`}>
                               #{idx + 1} • {currentCategory === 'emotion' ? 'WORDS' : currentCategory.toUpperCase()}
                             </span>
                             
-                            <span className={`text-xs font-black truncate leading-none ${headerText}`}>
+                            <span className={`text-xs font-black truncate leading-none ${isDup ? 'text-red-500' : headerText}`}>
                               {cue.text || 'Empty Card'}
                             </span>
 
-                            {cue.translation && (
+                            {isDup && (
+                              <span className="text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <AlertCircle className="w-2.5 h-2.5" /> TRÙNG LẶP
+                              </span>
+                            )}
+
+                            {cue.translation && !isDup && (
                               <span className={`text-[10px] truncate leading-none ${smallText}`}>
                                 ({cue.translation})
                               </span>
@@ -1184,7 +1359,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                                   }}
                                   className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-red-500 cursor-pointer ${innerBg}`}
                                 >
-                                  <option value="emotion">Words List Folder (Từ vựng) 📁</option>
+                                  <option value="emotion">Emotion (Ideas) Folder 📁</option>
                                   <option value="motion">Motion Pose Folder 🏃‍♂️</option>
                                   <option value="sound">Sound Echoes Folder 🔊</option>
                                 </select>
@@ -1231,17 +1406,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
                             {/* SOUND SCENARIO */}
                             {currentCategory === 'sound' && (
-                              <div className={`p-2 rounded-lg border space-y-1 ${
+                              <div className={`p-2 rounded-lg border flex gap-3 items-center py-4 ${
                                 theme === 'black' ? 'bg-[#150A0A] border-red-950/20' : 'bg-slate-50 border-slate-200'
                               }`}>
-                                <label className="block text-[8px] font-black text-rose-500 uppercase">Vocal Onomatopoeia sound</label>
-                                <input
-                                  type="text"
-                                  value={cue.soundText || ''}
-                                  onChange={(e) => handleUpdateCueValue(cue.id, 'soundText', e.target.value)}
-                                  placeholder="e.g. Quack! Quack! Quack!"
-                                  className={`w-full px-2 py-1 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-red-500 ${innerBg}`}
-                                />
+                                <div className="w-12 h-12 rounded bg-neutral-950 overflow-hidden shrink-0 border border-neutral-800">
+                                  <img 
+                                    src={`https://image.pollinations.ai/prompt/${encodeURIComponent("A cute flat vector illustration of " + (cue.translation || cue.text) + " making a sound, white background, simple colorful")}?width=100&height=100&nologo=true&seed=${cue.id.length}`}
+                                    alt="sound"
+                                    className="w-full h-full object-cover opacity-80"
+                                  />
+                                </div>
+                                <div className="flex flex-col">
+                                  <Volume2 className="w-5 h-5 text-red-500/50 mb-0.5" />
+                                  <span className="text-[10px] font-bold text-red-500/50 uppercase">Sound Card</span>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1254,7 +1432,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             </div>
 
             {/* Launch Parameter Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-3 font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 font-sans">
               <div className="space-y-1.5">
                 <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Speaking Language</label>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -1281,53 +1459,6 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     🇬🇧 EN
                   </button>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Loại từ (Word Type)</label>
-                <select
-                  value={wordType}
-                  onChange={(e) => setWordType(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
-                >
-                  <option value="Bất kỳ" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Bất kỳ (Any)</option>
-                  <option value="Danh từ" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Danh từ (Noun)</option>
-                  <option value="Động từ" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Động từ (Verb)</option>
-                  <option value="Tính từ" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Tính từ (Adjective)</option>
-                  <option value="Dạng câu hỏi" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Dạng câu hỏi (Question)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Level Challenge</label>
-                <select
-                  value={level}
-                  onChange={(e) => setLevel(e.target.value as any)}
-                  className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
-                >
-                  <option value="Easy" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Dễ (Easy)</option>
-                  <option value="Medium" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Vừa (Medium)</option>
-                  <option value="Hard" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Khó (Hard)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Số lượng thẻ (Cues)</label>
-                <select
-                  value={sampleCardCount}
-                  onChange={(e) => setSampleCardCount(Number(e.target.value))}
-                  className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
-                >
-                  <option value={3} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>3 Thẻ (3 Cues)</option>
-                  <option value={5} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>5 Thẻ (5 Cues)</option>
-                  <option value={8} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>8 Thẻ (8 Cues)</option>
-                  <option value={10} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>10 Thẻ (10 Cues)</option>
-                  <option value={15} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>15 Thẻ (15 Cues)</option>
-                  <option value={20} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>20 Thẻ (20 Cues)</option>
-                  <option value={30} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>30 Thẻ (30 Cues)</option>
-                  <option value={40} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>40 Thẻ (40 Cues)</option>
-                  <option value={50} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>50 Thẻ (50 Cues)</option>
-                </select>
               </div>
 
               <div className="space-y-1.5">
@@ -1442,7 +1573,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   }`}
                   title="Chỉ lọc bài học từ vựng"
                 >
-                  Từ vựng (Words List) ({savedLessons.filter(l => l.type === 'emotion').length})
+                  Emotion (Ideas) ({savedLessons.filter(l => l.type === 'emotion').length})
                 </button>
                 <button
                   type="button"
@@ -1526,11 +1657,11 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                           <div className="space-y-1.5 flex-1 min-w-0">
                             <div className="flex gap-1.5 items-center flex-wrap leading-none">
                               <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded leading-none ${
-                                les.type === 'motion' ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500' :
+                                les.type === 'motion' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500' :
                                 les.type === 'sound' ? 'bg-red-500/10 border border-red-500/30 text-red-500' :
                                 'bg-blue-500/10 border border-blue-500/30 text-blue-500'
                               }`}>
-                                {les.type === 'emotion' ? 'WORDS' : les.type}
+                                {les.type === 'emotion' ? 'EMOTION (IDEAS)' : les.type}
                               </span>
                               <span className={`text-[9px] font-semibold font-mono ${smallText}`}>
                                 {les.language === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'} • {totalCues} cue cards
@@ -1547,9 +1678,26 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                               )}
                             </div>
 
-                            <h3 className={`text-sm font-extrabold group-hover:text-red-500 transition-all truncate ${headerText}`}>
-                              {les.topic}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              {editingLessonId === les.id ? (
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={editingLessonTopicName}
+                                  onChange={(e) => setEditingLessonTopicName(e.target.value)}
+                                  className={`text-sm font-extrabold px-1 py-0.5 rounded border focus:outline-none focus:ring-1 focus:ring-red-500 w-full ${innerBg}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleUpdateLessonTopic(les.id);
+                                    if (e.key === 'Escape') setEditingLessonId(null);
+                                  }}
+                                />
+                              ) : (
+                                <h3 className={`text-sm font-extrabold group-hover:text-red-500 transition-all truncate ${headerText}`}>
+                                  {les.topic}
+                                </h3>
+                              )}
+                            </div>
 
                             {!isLessonExpanded && (
                               <p className={`text-[10px] truncate leading-none ${smallText}`}>
@@ -1588,18 +1736,35 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                               </button>
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingLessonId(les.id)}
-                              className={`p-1.5 rounded-lg border opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer ${
-                                theme === 'black' 
-                                  ? 'bg-neutral-950 hover:bg-red-950 border-neutral-900 text-slate-500 hover:text-red-400' 
-                                  : 'bg-white hover:bg-rose-50 border-slate-200 text-slate-400 hover:text-rose-600'
-                              }`}
-                              title="Xóa bài học 🗑️"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingLessonTopicName(les.topic);
+                                  setEditingLessonId(les.id);
+                                }}
+                                className={`p-1.5 rounded-lg border opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer ${
+                                  theme === 'black' 
+                                    ? 'bg-neutral-950 hover:bg-amber-950 border-neutral-900 text-slate-500 hover:text-amber-400' 
+                                    : 'bg-white hover:bg-amber-50 border-slate-200 text-slate-400 hover:text-amber-600'
+                                }`}
+                                title="Sửa tên folder ✏️"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingLessonId(les.id)}
+                                className={`p-1.5 rounded-lg border opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer ${
+                                  theme === 'black' 
+                                    ? 'bg-neutral-950 hover:bg-red-950 border-neutral-900 text-slate-500 hover:text-red-400' 
+                                    : 'bg-white hover:bg-rose-50 border-slate-200 text-slate-400 hover:text-rose-600'
+                                }`}
+                                title="Xóa bài học 🗑️"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1641,11 +1806,11 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                                       </div>
                                     </div>
                                     <span className={`text-[7px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded shrink-0 ${
-                                      cueCategory === 'motion' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                      cueCategory === 'motion' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
                                       cueCategory === 'sound' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
                                       'bg-blue-500/10 text-blue-500 border border-blue-500/20'
                                     }`}>
-                                      {cueCategory === 'emotion' ? 'WORDS' : cueCategory}
+                                      {cueCategory === 'emotion' ? 'EMOTION (IDEAS)' : cueCategory}
                                     </span>
                                   </div>
                                 );
@@ -2187,6 +2352,24 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   </select>
                 </div>
                 
+                {sampleType === 'emotion' && (
+                  <div className="space-y-1.5">
+                    <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Loại từ (Word Type)</label>
+                    <select
+                      value={sampleWordType}
+                      onChange={(e) => setSampleWordType(e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                    >
+                      <option value="Bất kỳ" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Tất cả (Bất kỳ)</option>
+                      <option value="Từ đơn" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Từ đơn (1 âm tiết)</option>
+                      <option value="Từ phức" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Từ phức (2+ âm tiết)</option>
+                      <option value="Câu ngắn" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Câu ngắn (Short phrases)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Khóa học</label>
                   <select
@@ -2199,9 +2382,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     <option value="sound" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Âm thanh (Sound)</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Số lượng thẻ</label>
                   <select
@@ -2218,6 +2399,9 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     <option value={30} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>30 Thẻ</option>
                     <option value={40} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>40 Thẻ</option>
                     <option value={50} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>50 Thẻ</option>
+                    <option value={100} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>100 Thẻ</option>
+                    <option value={150} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>150 Thẻ</option>
+                    <option value={200} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>200 Thẻ</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">

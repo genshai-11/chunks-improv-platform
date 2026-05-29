@@ -21,7 +21,10 @@ import {
   Flame,
   Brain,
   Maximize,
-  Minimize
+  Minimize,
+  Flag,
+  Settings,
+  X
 } from 'lucide-react';
 
 interface StagePresenterProps {
@@ -36,64 +39,92 @@ interface StagePresenterProps {
 
 // Custom stick-figure skeleton preview generator for physical motion poses
 function PoseSketch({ poseJson }: { poseJson?: string }) {
+  const drawAnimation = {
+    initial: { pathLength: 0, opacity: 0 },
+    animate: { pathLength: 1, opacity: 1 },
+    transition: { duration: 0.8, ease: "easeOut" }
+  };
+
+  const drawCircleAnimation = {
+    initial: { scale: 0, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    transition: { duration: 0.4, ease: "easeOut" }
+  };
+
+  const key = poseJson || 'default';
+
+  const createSmoothPath = (points: number[][]) => {
+    if (!points || points.length === 0) return "";
+    if (points.length === 1) return `M ${points[0].join(',')}`;
+    if (points.length === 2) return `M ${points[0].join(',')} L ${points[1].join(',')}`;
+    // Use Quadratic bezier for 3 points (e.g. shoulder -> elbow -> hand)
+    return `M ${points[0].join(',')} Q ${points[1].join(',')} ${points[2].join(',')}`;
+  };
+
   if (!poseJson) {
     return (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 stroke-amber-400 stroke-[3] fill-none stroke-round overflow-visible animate-pulse">
-        <circle cx="50" cy="20" r="7" className="stroke-amber-400 fill-amber-500/5" />
-        <line x1="50" y1="27" x2="50" y2="55" />
-        <line x1="50" y1="35" x2="25" y2="35" />
-        <line x1="50" y1="35" x2="75" y2="35" />
-        <line x1="50" y1="55" x2="35" y2="85" />
-        <line x1="50" y1="55" x2="65" y2="85" />
-      </svg>
+      <motion.svg key={key} viewBox="0 0 100 100" className="w-full h-full fill-none overflow-visible drop-shadow-md" strokeLinecap="round" strokeLinejoin="round" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
+        {/* Head */}
+        <motion.circle cx="50" cy="15" r="9" className="stroke-indigo-500 fill-indigo-500/20 stroke-[3]" {...drawCircleAnimation} />
+        {/* Torso */}
+        <motion.path d="M 50 24 C 55 35 55 45 50 55" className="stroke-indigo-500 stroke-[12]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={drawAnimation.transition} />
+        {/* Left Arm: Shoulder to elbow to hand */}
+        <motion.path d="M 50 28 C 40 30 35 40 30 45" className="stroke-blue-400 stroke-[6]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.1 }} />
+        {/* Right Arm */}
+        <motion.path d="M 50 28 C 60 30 65 40 70 45" className="stroke-blue-400 stroke-[6]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.1 }} />
+        {/* Left Leg */}
+        <motion.path d="M 48 53 C 45 65 40 75 35 85" className="stroke-indigo-400 stroke-[7]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.2 }} />
+        {/* Right Leg */}
+        <motion.path d="M 52 53 C 55 65 60 75 65 85" className="stroke-indigo-400 stroke-[7]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.2 }} />
+      </motion.svg>
     );
   }
 
   try {
     const coords = typeof poseJson === 'string' ? JSON.parse(poseJson) : poseJson;
-    const head = coords.head || [50, 20];
-    const spine = coords.spine || [[50, 20], [50, 55]];
-    const leftArm = coords.leftArm || [[50, 30], [30, 30]];
-    const rightArm = coords.rightArm || [[50, 30], [70, 30]];
-    const leftLeg = coords.leftLeg || [[50, 55], [35, 85]];
-    const rightLeg = coords.rightLeg || [[50, 55], [65, 85]];
+    const head = coords.head || [50, 15];
+    const spine = coords.spine || [[50, 24], [50, 55]];
+    const leftArm = coords.leftArm || [[50, 28], [35, 40], [30, 45]];
+    const rightArm = coords.rightArm || [[50, 28], [65, 40], [70, 45]];
+    const leftLeg = coords.leftLeg || [[48, 53], [42, 68], [35, 85]];
+    const rightLeg = coords.rightLeg || [[52, 53], [58, 68], [65, 85]];
 
     return (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 stroke-amber-400 stroke-[3.5] fill-none stroke-round overflow-visible">
+      <motion.svg key={key} viewBox="0 0 100 100" className="w-full h-full fill-none overflow-visible drop-shadow-md" strokeLinecap="round" strokeLinejoin="round" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
         {/* Head */}
-        <circle cx={head[0]} cy={head[1]} r="7" className="stroke-amber-400 fill-amber-500/10" />
-        {/* Spine */}
+        <motion.circle cx={head[0]} cy={head[1]} r="9" className="stroke-indigo-500 fill-indigo-500/20 stroke-[3]" {...drawCircleAnimation} />
+        {/* Torso */}
         {spine.length > 1 && (
-          <path d={`M ${spine.map((p: any) => p.join(',')).join(' L ')}`} />
+          <motion.path d={createSmoothPath(spine)} className="stroke-indigo-500 stroke-[12]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={drawAnimation.transition} />
         )}
         {/* Left Arm */}
         {leftArm.length > 1 && (
-          <path d={`M ${leftArm.map((p: any) => p.join(',')).join(' L ')}`} />
+          <motion.path d={createSmoothPath(leftArm)} className="stroke-blue-400 stroke-[6]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.1 }} />
         )}
         {/* Right Arm */}
         {rightArm.length > 1 && (
-          <path d={`M ${rightArm.map((p: any) => p.join(',')).join(' L ')}`} />
+          <motion.path d={createSmoothPath(rightArm)} className="stroke-blue-400 stroke-[6]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.1 }} />
         )}
         {/* Left Leg */}
         {leftLeg.length > 1 && (
-          <path d={`M ${leftLeg.map((p: any) => p.join(',')).join(' L ')}`} />
+          <motion.path d={createSmoothPath(leftLeg)} className="stroke-indigo-400 stroke-[7]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.2 }} />
         )}
         {/* Right Leg */}
         {rightLeg.length > 1 && (
-          <path d={`M ${rightLeg.map((p: any) => p.join(',')).join(' L ')}`} />
+          <motion.path d={createSmoothPath(rightLeg)} className="stroke-indigo-400 stroke-[7]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.2 }} />
         )}
-      </svg>
+      </motion.svg>
     );
   } catch (e) {
     return (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 stroke-amber-400 stroke-[3] fill-none stroke-round overflow-visible">
-        <circle cx="50" cy="20" r="7" />
-        <line x1="50" y1="27" x2="50" y2="55" />
-        <line x1="50" y1="35" x2="30" y2="35" />
-        <line x1="50" y1="35" x2="70" y2="35" />
-        <line x1="50" y1="55" x2="35" y2="85" />
-        <line x1="50" y1="55" x2="65" y2="85" />
-      </svg>
+      <motion.svg key={key} viewBox="0 0 100 100" className="w-full h-full fill-none overflow-visible drop-shadow-md" strokeLinecap="round" strokeLinejoin="round" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
+        <motion.circle cx="50" cy="15" r="9" className="stroke-amber-500 fill-amber-500/20 stroke-[3]" {...drawCircleAnimation} />
+        <motion.path d="M 50 24 C 55 35 55 45 50 55" className="stroke-amber-500 stroke-[12]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={drawAnimation.transition} />
+        <motion.path d="M 50 28 C 40 30 35 40 30 45" className="stroke-amber-400 stroke-[6]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.1 }} />
+        <motion.path d="M 50 28 C 60 30 65 40 70 45" className="stroke-amber-400 stroke-[6]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.1 }} />
+        <motion.path d="M 48 53 C 45 65 40 75 35 85" className="stroke-amber-500 stroke-[7]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.2 }} />
+        <motion.path d="M 52 53 C 55 65 60 75 65 85" className="stroke-amber-500 stroke-[7]" initial={drawAnimation.initial} animate={drawAnimation.animate} transition={{ ...drawAnimation.transition, delay: 0.2 }} />
+      </motion.svg>
     );
   }
 }
@@ -134,7 +165,15 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
   // Fullscreen state & controller
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [languageInverted, setLanguageInverted] = useState<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // Stage overlay settings
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'design' | 'settings'>('design');
+  const [fontSizeClass, setFontSizeClass] = useState<string>('text-3xl md:text-5xl');
+  const [textColorClass, setTextColorClass] = useState<string>('');
+  const [bgImage, setBgImage] = useState<string>('');
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -346,8 +385,10 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   };
 
   // Assistive Speech voice playback logic (text to speech)
-  const speakCue = useCallback(async (text: string, cueId?: string) => {
+  const speakCue = useCallback(async (text: string, cueId?: string, isTranslationText?: boolean) => {
     if (isAudioMuted || activeTtsMode === 'silent') return;
+    
+    const effectiveLang = isTranslationText ? (config.language === 'vi' ? 'en' : 'vi') : config.language;
 
     // 1. Instantly tap into our pre-cached audio dictionary if present (Zero delay playback!)
     const currentList = currentCuesRef.current;
@@ -366,7 +407,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
       }
     }
 
-    const cachedBase64 = targetId ? (audioCache[targetId] || audioCache[text]) : audioCache[text];
+    const cachedBase64 = (targetId && !isTranslationText) ? (audioCache[targetId] || audioCache[text]) : audioCache[text];
 
     if (cachedBase64) {
       console.log(`Preloaded TTS cache hit! Instant playback triggered for "${text}" (Zero latency)`);
@@ -385,8 +426,14 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     if (activeTtsMode === 'local' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = config.language === 'vi' ? 'vi-VN' : 'en-US';
-      if (localVoice) utterance.voice = localVoice;
+      utterance.lang = effectiveLang === 'vi' ? 'vi-VN' : 'en-US';
+      
+      const voices = window.speechSynthesis.getVoices();
+      const targetLangId = effectiveLang === 'vi' ? 'vi' : 'en';
+      const bestVoice = voices.find(v => v.lang.toLowerCase().includes(utterance.lang.toLowerCase())) || 
+                        voices.find(v => v.lang.toLowerCase().startsWith(targetLangId));
+      if (bestVoice) utterance.voice = bestVoice;
+      
       utterance.rate = 1.0;
       window.speechSynthesis.speak(utterance);
     } 
@@ -396,7 +443,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, language: config.language })
+          body: JSON.stringify({ text, language: effectiveLang })
         });
         if (!res.ok) throw new Error("TTS endpoint error");
         const json = await res.json();
@@ -419,7 +466,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = config.language === 'vi' ? 'vi-VN' : 'en-US';
+          utterance.lang = effectiveLang === 'vi' ? 'vi-VN' : 'en-US';
           window.speechSynthesis.speak(utterance);
         }
       } finally {
@@ -434,7 +481,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             text, 
-            language: config.language,
+            language: effectiveLang,
             ttsMode: '9router',
             nineRouterConfig
           })
@@ -460,7 +507,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = config.language === 'vi' ? 'vi-VN' : 'en-US';
+          utterance.lang = effectiveLang === 'vi' ? 'vi-VN' : 'en-US';
           window.speechSynthesis.speak(utterance);
         }
       } finally {
@@ -488,7 +535,8 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     if (nextIdx < currentList.length) {
       setCurrentIndex(nextIdx);
       setSecondsRemaining(config.duration);
-      speakCue(currentList[nextIdx].text, currentList[nextIdx].id);
+      const targetText = languageInverted && currentList[nextIdx].translation ? currentList[nextIdx].translation : currentList[nextIdx].text;
+      speakCue(targetText, currentList[nextIdx].id, languageInverted);
       setHistory(prev => {
         if (prev.find(x => x.id === currentList[nextIdx].id)) return prev;
         return [...prev, currentList[nextIdx]];
@@ -508,11 +556,15 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
         }, 100);
       });
     }
-  }, [config.duration, speakCue, triggerBufferReplenish]);
+  }, [config.duration, speakCue, triggerBufferReplenish, languageInverted]);
 
   // Pause/Resume toggler
   const togglePlay = useCallback(() => {
     setIsPlaying(prev => !prev);
+  }, []);
+
+  const toggleLanguage = useCallback(() => {
+    setLanguageInverted(prev => !prev);
   }, []);
 
   // Timer Tick implementation
@@ -540,7 +592,8 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   // Initial speaking trigger for first item
   useEffect(() => {
     if (cues.length > 0) {
-      speakCue(cues[0].text, cues[0].id);
+      const targetText = languageInverted && cues[0].translation ? cues[0].translation : cues[0].text;
+      speakCue(targetText, cues[0].id, languageInverted);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -561,6 +614,9 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
       } else if (e.code === 'Escape') {
         e.preventDefault();
         onStop();
+      } else if (e.code === 'KeyL') {
+        e.preventDefault();
+        toggleLanguage();
       }
     };
 
@@ -582,10 +638,13 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   const titleColor = theme === 'black' ? 'text-white' : 'text-slate-900';
 
   return (
-    <div id="live-stage" className={`flex flex-col h-full min-h-[80vh] justify-between max-w-5xl mx-auto py-2 px-4 select-none animate-scale-up transition-colors duration-300 ${textPrimary}`}>
-      
+    <div 
+      id="live-stage" 
+      className={`relative flex flex-col h-full min-h-[80vh] justify-between max-w-5xl mx-auto py-2 px-4 select-none animate-scale-up transition-colors duration-300 overflow-hidden md:overflow-visible ${textPrimary}`}
+      style={bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : {}}
+    >
       {/* Top Cockpit Monitor Bar */}
-      <div className={`flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-md border rounded-2xl ${panelHeaderBg}`}>
+      <div className={`mt-10 md:mt-0 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-md border rounded-2xl relative z-10 ${panelHeaderBg}`}>
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
           <div>
@@ -694,11 +753,42 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           className={`w-full max-w-3xl rounded-2xl border p-8 md:p-12 text-center flex flex-col justify-between relative overflow-hidden min-h-[320px] group transition-all duration-300 ${cardBg}`}
         >
           
+          {/* Absolute Logo Top-Left of Stage */}
+          <div className="absolute top-4 left-6 z-50">
+            <img src="/logo.png" alt="Logo" className="h-10 md:h-12 object-contain drop-shadow-md opacity-80" />
+          </div>
+
+          {/* Background Flags (Language Switches) */}
+          <div className="absolute top-4 xl:top-6 right-6 xl:right-8 z-50 flex flex-col xl:flex-row items-center gap-1.5 md:gap-2">
+            <button 
+              onClick={() => setLanguageInverted(config.language === 'en')} 
+              className={`hover:scale-110 transition-all ${(!languageInverted && config.language === 'vi') || (languageInverted && config.language === 'en') ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'opacity-40 saturate-50 hover:opacity-80'}`}
+              title="Vietnamese"
+            >
+              <img src="https://flagcdn.com/w80/vn.png" alt="VN" className="w-[34px] md:w-[40px] h-[24px] md:h-[28px] object-cover rounded-sm border border-black/10 shadow-sm" />
+            </button>
+            <button 
+              onClick={() => setLanguageInverted(config.language === 'vi')} 
+              className={`hover:scale-110 transition-all ${(!languageInverted && config.language === 'en') || (languageInverted && config.language === 'vi') ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'opacity-40 saturate-50 hover:opacity-80'}`}
+              title="English"
+            >
+              <img src="https://flagcdn.com/w80/us.png" alt="US" className="w-[34px] md:w-[40px] h-[24px] md:h-[28px] object-cover rounded-sm border border-black/10 shadow-sm" />
+            </button>
+            <div className="hidden xl:block w-px h-6 bg-slate-500/30 mx-1"></div>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowSettings(true); }} 
+              className="p-1.5 md:p-2 mt-2 xl:mt-0 bg-slate-800/80 text-white rounded-full hover:bg-slate-700/80 transition-colors shadow-md border border-slate-700 cursor-pointer"
+              title="Stage Settings"
+            >
+              <Settings className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
+          </div>
+
           {/* Neon Borders Blue & Red Gradient */}
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-rose-550" />
 
           {/* Active pacing remaining indicator bubbles */}
-          <div className="absolute top-5 right-5 flex items-center gap-2.5">
+          <div className="absolute bottom-5 right-5 flex items-center gap-2.5 z-10">
             {isFullscreen && (
               <button 
                 onClick={toggleFullscreen}
@@ -725,14 +815,14 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             {/* Primary Speaking Trigger */}
             <div className="space-y-4">
               <div className="flex items-center justify-center gap-3.5 flex-wrap">
-                <h2 className={`text-3xl md:text-5xl font-display font-black tracking-tight animate-scale-up select-all break-words leading-tight drop-shadow-md ${titleColor}`}>
-                  {currentCue.text}
+                <h2 className={`${fontSizeClass} font-display font-black tracking-tight animate-scale-up select-all break-words leading-tight drop-shadow-md transition-all ${textColorClass || titleColor}`}>
+                  {languageInverted && currentCue.translation ? currentCue.translation : currentCue.text}
                 </h2>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    speakCue(currentCue.text, currentCue.id);
+                    speakCue(languageInverted && currentCue.translation ? currentCue.translation : currentCue.text, currentCue.id, languageInverted);
                   }}
                   className={`p-1.5 md:p-2.5 rounded-full border transition-all cursor-pointer active:scale-90 flex items-center justify-center shadow-xs group/speak ${
                     theme === 'black'
@@ -744,51 +834,61 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
                   <Volume2 className="w-5 h-5 md:w-6 md:h-6 text-red-500 animate-pulse group-hover/speak:animate-none" />
                 </button>
               </div>
-              {currentCue.translation && (
-                <p className={`text-base md:text-lg font-serif italic font-medium tracking-wide ${labelColor}`}>
-                  {currentCue.translation}
+              {(languageInverted ? currentCue.text : currentCue.translation) && (
+                <p className={`${fontSizeClass === 'text-xl md:text-3xl' ? 'text-sm md:text-base' : fontSizeClass === 'text-4xl md:text-6xl' ? 'text-lg md:text-2xl' : 'text-base md:text-lg'} font-serif italic font-medium tracking-wide transition-all ${labelColor}`}>
+                  {languageInverted ? currentCue.text : currentCue.translation}
                 </p>
               )}
             </div>
 
             {/* Mode-Aware Visual Card Layout */}
             {config.mode === 'motion' ? (
-              <div className={`inline-flex flex-col sm:flex-row items-center gap-6 max-w-xl mx-auto border p-5 rounded-2xl text-left animate-fade-in w-full ${
-                theme === 'black' ? 'bg-neutral-950/40 border-neutral-900' : 'bg-slate-100/50 border-slate-200 shadow-inner'
-              }`}>
-                <div className={`w-24 h-24 shrink-0 rounded-xl flex items-center justify-center p-2 shadow-inner border ${
-                  theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-250'
+              <div className="flex flex-row items-center justify-center gap-4 animate-fade-in w-full mt-2">
+                {/* AI Image Preview */}
+                <div className={`w-40 h-40 shrink-0 rounded-2xl flex items-center justify-center shadow-md border overflow-hidden relative group ${
+                  theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-200'
                 }`}>
-                  <PoseSketch poseJson={currentCue.poseJson} />
+                  {(() => {
+                    const txt = currentCue.translation || currentCue.text || 'A';
+                    const hash = txt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                    const hue = hash % 360;
+                    return (
+                      <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id={`grad-${hash}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor={`hsl(${hue}, 80%, 70%)`} />
+                            <stop offset="100%" stopColor={`hsl(${(hue + 60) % 360}, 80%, 50%)`} />
+                          </linearGradient>
+                        </defs>
+                        <rect width="100" height="100" fill={`url(#grad-${hash})`} />
+                        <text x="50" y="55" fill="white" fontSize="40" fontWeight="bold" textAnchor="middle" alignmentBaseline="middle">
+                          {txt.charAt(0).toUpperCase()}
+                        </text>
+                      </svg>
+                    );
+                  })()}
                 </div>
-                <div className="flex-1 space-y-1">
-                  <span className="text-[9px] font-bold text-amber-500 bg-amber-500/5 border border-amber-500/10 uppercase px-2 py-0.5 rounded tracking-widest inline-block font-sans">
-                    🏃 Active Pose Action
-                  </span>
-                  <p className={`text-xs font-semibold leading-relaxed ${theme === 'black' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {config.language === 'vi' ? 'Hãy bắt chước tư thế trong khung hình. Căng cơ và biểu đạt!' : 'Imitate the posture shown in the box. Stretch and express!'}
-                  </p>
+
+                {/* Animated Human-Like Pose Sketch Guide */}
+                <div className={`w-36 h-40 shrink-0 rounded-2xl flex items-center justify-center shadow-inner border overflow-hidden relative ${
+                  theme === 'black' ? 'bg-neutral-900/50 border-neutral-800' : 'bg-slate-100/50 border-slate-200'
+                }`}>
+                  <div className="w-24 h-24">
+                    <PoseSketch poseJson={currentCue.poseJson} />
+                  </div>
+                  <div className="absolute top-2 left-2 text-[8px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                    Pose Guide
+                  </div>
                 </div>
               </div>
             ) : config.mode === 'sound' ? (
-              <div className={`inline-flex flex-col sm:flex-row items-center gap-6 max-w-xl mx-auto border p-5 rounded-2xl text-left animate-fade-in w-full ${
-                theme === 'black' ? 'bg-neutral-950/40 border-neutral-900' : 'bg-slate-100/50 border-slate-200 shadow-inner'
-              }`}>
-                <div className={`w-24 h-24 shrink-0 rounded-xl flex flex-col items-center justify-center p-2 relative overflow-hidden group shadow-inner border ${
-                  theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-250'
-                }`}>
-                  <div className="text-2xl animate-bounce">📢</div>
-                  <div className="text-[10px] font-mono font-bold text-red-500 px-1.5 py-0.5 bg-red-500/10 border border-red-500/20 rounded mt-1 text-center truncate max-w-full">
-                    {currentCue.soundText || "Quack!"}
+              <div className="flex flex-col items-center animate-fade-in w-full mt-2">
+                <div className="flex gap-4 items-stretch justify-center w-full relative">
+                  <div className={`w-32 h-40 shrink-0 rounded-2xl flex flex-col items-center justify-center p-2 relative overflow-hidden shadow-md border ${
+                    theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-200'
+                  }`}>
+                    <Volume2 className="w-12 h-12 text-red-500 animate-pulse" />
                   </div>
-                </div>
-                <div className="flex-1 space-y-1">
-                  <span className="text-[9px] font-bold text-red-500 bg-red-500/5 border border-red-500/10 uppercase px-2 py-0.5 rounded tracking-widest inline-block font-sans">
-                    📣 Sound & Vocal Script
-                  </span>
-                  <p className={`text-xs font-semibold leading-relaxed ${theme === 'black' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    <strong>Vocalize sound effect:</strong> &ldquo;{currentCue.soundText || "quack quack"}&rdquo;
-                  </p>
                 </div>
               </div>
             ) : (
@@ -895,7 +995,10 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             {history.map((h, i) => (
               <div 
                 key={h.id} 
-                onClick={() => speakCue(h.text, h.id)}
+                onClick={() => {
+                  const targetText = languageInverted && h.translation ? h.translation : h.text;
+                  speakCue(targetText, h.id, languageInverted);
+                }}
                 className={`text-[10px] font-semibold py-1.5 px-3 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
                   i === currentIndex 
                     ? 'bg-red-550/10 text-red-500 border-red-500/40 font-bold' 
@@ -910,6 +1013,137 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-left">
+          <div className={`w-full max-w-lg rounded-2xl border p-6 flex flex-col gap-6 transform transition-all shadow-2xl ${
+            theme === 'black' ? 'bg-[#0E0808] border-neutral-900 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black font-display flex items-center gap-2">
+                <Settings className="w-5 h-5 text-red-500" />
+                Stage Settings
+              </h3>
+              <button 
+                onClick={() => setShowSettings(false)}
+                className={`p-1.5 rounded-lg border transition-all ${
+                  theme === 'black' ? 'hover:bg-neutral-900 border-neutral-800' : 'hover:bg-slate-100 border-slate-200'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex gap-2 border-b border-neutral-800/20 dark:border-neutral-800/50 pb-2">
+              <button 
+                onClick={() => setActiveSettingsTab('design')}
+                className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-md transition-colors ${
+                  activeSettingsTab === 'design' 
+                    ? 'bg-red-500 text-white' 
+                    : (theme === 'black' ? 'text-slate-400 hover:text-slate-200 hover:bg-neutral-900' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
+                }`}
+              >
+                Design & Hotkeys
+              </button>
+              <button 
+                onClick={() => setActiveSettingsTab('settings')}
+                className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-md transition-colors ${
+                  activeSettingsTab === 'settings' 
+                    ? 'bg-red-500 text-white' 
+                    : (theme === 'black' ? 'text-slate-400 hover:text-slate-200 hover:bg-neutral-900' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
+                }`}
+              >
+                9Router
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto max-h-[60vh] pr-2">
+              {activeSettingsTab === 'design' && (
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'black' ? 'text-slate-500' : 'text-slate-400'}`}>Main Font Size (Text)</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setFontSizeClass('text-xl md:text-3xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-xl md:text-3xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Small</button>
+                      <button onClick={() => setFontSizeClass('text-3xl md:text-5xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-3xl md:text-5xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Normal</button>
+                      <button onClick={() => setFontSizeClass('text-4xl md:text-6xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-4xl md:text-6xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Large</button>
+                      <button onClick={() => setFontSizeClass('text-6xl md:text-8xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-6xl md:text-8xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Very Large</button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'black' ? 'text-slate-500' : 'text-slate-400'}`}>Primary Text Color (Override)</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setTextColorClass('')} className={`flex-1 py-2 rounded border text-xs font-bold transition-all ${textColorClass === '' ? 'border-red-500 bg-red-500/10 text-red-500' : (theme === 'black' ? 'border-neutral-800 text-slate-400' : 'border-slate-200 text-slate-600')}`}>Auto</button>
+                      <button onClick={() => setTextColorClass('text-red-500')} className={`flex-1 py-2 rounded border text-xs font-bold text-red-500 transition-all ${textColorClass === 'text-red-500' ? 'border-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800' : 'border-slate-200')}`}>Red</button>
+                      <button onClick={() => setTextColorClass('text-amber-400')} className={`flex-1 py-2 rounded border text-xs font-bold text-amber-400 transition-all ${textColorClass === 'text-amber-400' ? 'border-amber-500 bg-amber-500/10' : (theme === 'black' ? 'border-neutral-800' : 'border-slate-200')}`}>Amber</button>
+                      <button onClick={() => setTextColorClass('text-emerald-400')} className={`flex-1 py-2 rounded border text-xs font-bold text-emerald-400 transition-all ${textColorClass === 'text-emerald-400' ? 'border-emerald-500 bg-emerald-500/10' : (theme === 'black' ? 'border-neutral-800' : 'border-slate-200')}`}>Emerald</button>
+                      <button onClick={() => setTextColorClass('text-cyan-400')} className={`flex-1 py-2 rounded border text-xs font-bold text-cyan-400 transition-all ${textColorClass === 'text-cyan-400' ? 'border-cyan-500 bg-cyan-500/10' : (theme === 'black' ? 'border-neutral-800' : 'border-slate-200')}`}>Cyan</button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'black' ? 'text-slate-500' : 'text-slate-400'}`}>Stage Backdrop Background Image</label>
+                    <input 
+                      type="text" 
+                      value={bgImage} 
+                      onChange={(e) => setBgImage(e.target.value)} 
+                      placeholder="Image URL (Clear to remove)..."
+                      className={`w-full px-3 py-2.5 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-red-500 transition-all ${theme === 'black' ? 'bg-neutral-950 border border-neutral-800 text-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800'}`}
+                    />
+                  </div>
+
+                  <div className={`p-4 rounded-xl border text-xs ${theme === 'black' ? 'bg-neutral-900/50 border-neutral-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                    <h4 className="font-bold mb-3 text-sm text-red-500">Stage Hotkeys Map</h4>
+                    <ul className="space-y-2.5">
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Space</span> <span>Pause / Resume</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Enter</span> <span>Next Target</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Esc</span> <span>Exit Live Mode</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">L</span> <span>Toggle Language Target</span></li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === 'settings' && (
+                <div className="space-y-5">
+                  <p className={`text-xs leading-relaxed ${theme === 'black' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Active session environment uses the following <strong>9Router Orchestration</strong> configurations. Changes must be applied in the Dashboard prior to launching the Stage.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <div className={`p-3 rounded-xl border ${theme === 'black' ? 'bg-neutral-900/40 border-neutral-800' : 'bg-slate-50 border-slate-200'}`}>
+                      <span className={`block text-[10px] uppercase tracking-widest font-bold mb-1 ${theme === 'black' ? 'text-slate-500' : 'text-slate-400'}`}>Status</span>
+                      <div className="text-sm font-bold flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${nineRouterConfig?.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-500'}`}></div> 
+                        {nineRouterConfig?.enabled ? 'Online / Actively Routed' : 'Offline / Default Gateway'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className={`block text-[10px] uppercase tracking-wider font-bold mb-1 ${theme === 'black' ? 'text-slate-600' : 'text-slate-400'}`}>Instance Origin URL</span>
+                      <span className="text-xs font-mono opacity-80 break-all">{nineRouterConfig?.url || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className={`block text-[10px] uppercase tracking-wider font-bold mb-1 ${theme === 'black' ? 'text-slate-600' : 'text-slate-400'}`}>Generative LLM Model</span>
+                      <span className="text-xs font-mono opacity-80 bg-black/10 px-1 py-0.5 rounded">{nineRouterConfig?.llmModel || 'N/A'}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className={`block text-[10px] uppercase tracking-wider font-bold mb-1 ${theme === 'black' ? 'text-slate-600' : 'text-slate-400'}`}>Vietnamese TTS</span>
+                        <span className="text-xs font-mono opacity-80 block truncate" title={nineRouterConfig?.ttsModelVi}>{nineRouterConfig?.ttsModelVi || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className={`block text-[10px] uppercase tracking-wider font-bold mb-1 ${theme === 'black' ? 'text-slate-600' : 'text-slate-400'}`}>English TTS</span>
+                        <span className="text-xs font-mono opacity-80 block truncate" title={nineRouterConfig?.ttsModelEn}>{nineRouterConfig?.ttsModelEn || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
