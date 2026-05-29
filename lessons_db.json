@@ -1,0 +1,863 @@
+[
+  {
+    "id": "preset-mot-90gestures",
+    "topic": "Bộ 90+ Cử Chỉ & Thể Hiện Cơ Thể",
+    "type": "motion",
+    "level": "Medium",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "g-100",
+        "text": "Giơ cả 2 tay lên cao",
+        "translation": "Raise both hands high",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30,12], [20,2]], \"rightArm\": [[50,28], [70,12], [80,2]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-101",
+        "text": "Giơ 1 tay lên cao",
+        "translation": "Raise one hand high",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30,12], [20,2]], \"rightArm\": [[50,28], [65,40], [70,55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-102",
+        "text": "Ok hai tay",
+        "translation": "Double OK sign",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35,22], [42,16]], \"rightArm\": [[50,28], [65,22], [58,16]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-103",
+        "text": "Italian (chụm ngón)",
+        "translation": "Italian hand pinch",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [32,32], [42,28]], \"rightArm\": [[50,28], [68,32], [58,28]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-104",
+        "text": "chỉ chỉ 1 người trong phòng",
+        "translation": "Point at someone in the room",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [25,28], [10,28]], \"rightArm\": [[50,28], [65,40], [70,55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-105",
+        "text": "khều ai đó",
+        "translation": "Tap/nudge someone",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30,30], [20,20]], \"rightArm\": [[50,28], [60,40], [60,55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-106",
+        "text": "tay chặt xuống 1 lần",
+        "translation": "Single hand chop",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [40,40], [45,55]], \"rightArm\": [[50,28], [75,22], [85,15]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-107",
+        "text": "chỉ 1 thứ màu đen",
+        "translation": "Point at something black",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [25,22], [12,18]], \"rightArm\": [[50,28], [65,40], [75,50]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-108",
+        "text": "chống nạnh bất lực",
+        "translation": "Helpless hands on hips",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30,38], [42,48]], \"rightArm\": [[50,28], [70,38], [58,48]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-109",
+        "text": "vỗ vỗ nhẹ vai người khác",
+        "translation": "Gently pat someone's shoulder",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30,30], [22,30]], \"rightArm\": [[50,28], [60, 25], [75, 18]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-110",
+        "text": "tay chỉ lên trời",
+        "translation": "Point to the sky",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35,42], [32,55]], \"rightArm\": [[50,28], [65,15], [68, 2]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-111",
+        "text": "búng tay",
+        "translation": "Snap fingers",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [40,32], [45,30]], \"rightArm\": [[50,28], [72,30], [80,28]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-112",
+        "text": "lắc lắc hai cổ tay ngửa bàn tay",
+        "translation": "Shake wrists palms up",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30,32], [18,32]], \"rightArm\": [[50,28], [70,32], [82,32]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-113",
+        "text": "bắt tay người khác",
+        "translation": "Shake hands with someone",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35,40], [35,52]], \"rightArm\": [[50,28], [70,28], [88, 28]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-114",
+        "text": "tay làm động tác uống",
+        "translation": "Mimic drinking water",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35,35], [45, 22]], \"rightArm\": [[50,28], [65, 42], [70, 55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-115",
+        "text": "động tác như 2 tay đang cầm trái banh",
+        "translation": "Hold an imaginary ball",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35,32], [42, 32]], \"rightArm\": [[50,28], [65, 32], [58, 32]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-116",
+        "text": "Chỉ chỉ vào tim mình",
+        "translation": "Point to your own heart",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [40,32], [48, 32]], \"rightArm\": [[50,28], [65, 42], [70, 55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      },
+      {
+        "id": "g-117",
+        "text": "vỗ tay nhanh",
+        "translation": "Rapid clapping",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [45, 30], [48, 30]], \"rightArm\": [[50,28], [55, 30], [52, 30]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-118",
+        "text": "đập bàn nhẹ",
+        "translation": "Gently tap the table",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35, 40], [28, 50]], \"rightArm\": [[50,28], [65, 40], [72, 50]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-119",
+        "text": "vỗ đùi mạnh",
+        "translation": "Slap thighs loudly",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [35, 45], [38, 62]], \"rightArm\": [[50,28], [65, 45], [62, 62]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-120",
+        "text": "hai tay chụm lại chạm nhau",
+        "translation": "Touch both hands together",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [45, 35], [50, 35]], \"rightArm\": [[50,28], [55, 35], [50, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-121",
+        "text": "chống nạnh bực (ôm eo)",
+        "translation": "Angry hands on hips",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [30, 35], [42, 48]], \"rightArm\": [[50,28], [70, 35], [58, 48]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-122",
+        "text": "vung tay quá trán",
+        "translation": "Swing arm past forehead",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [32, 20], [45, 10]], \"rightArm\": [[50,28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-123",
+        "text": "gãi cằm",
+        "translation": "Scratch your chin",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [42, 30], [49, 25]], \"rightArm\": [[50,28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-124",
+        "text": "cử chỉ anh da đen (hay bàn tay về trước)",
+        "translation": "Khaby Lame shrug gesture",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50,55]], \"leftArm\": [[50,28], [32, 32], [20, 38]], \"rightArm\": [[50,28], [68, 32], [80, 38]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-125",
+        "text": "ngoắc tay",
+        "translation": "Beckon with fingers",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [30, 30], [25, 25]], \"rightArm\": [[50,28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-126",
+        "text": "hất tay",
+        "translation": "Flick wrist / brush off",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [35, 40], [20, 45]], \"rightArm\": [[50,28], [62, 28], [78, 28]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-127",
+        "text": "2 tay xoay tròn đạp xe",
+        "translation": "Roll arms in circles",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [40, 30], [42, 28]], \"rightArm\": [[50, 28], [60, 32], [58, 34]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-128",
+        "text": "ngón tay bước đi",
+        "translation": "Walk with two fingers",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [32, 45], [25, 58]], \"rightArm\": [[50,28], [68, 45], [75, 58]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-129",
+        "text": "khoanh tay",
+        "translation": "Cross/fold arms",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [40, 32], [55, 32]], \"rightArm\": [[50, 28], [60, 32], [45, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-130",
+        "text": "ngón tay miêu tả 1 thứ rất nhỏ",
+        "translation": "Pinch a tiny item",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [38, 32], [45, 32]], \"rightArm\": [[50, 28], [62, 40], [68, 52]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-131",
+        "text": "nói che miệng",
+        "translation": "Whisper with covered mouth",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50,28], [42, 25], [46, 21]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-132",
+        "text": "vừa nói vừa gãi",
+        "translation": "Talk while scratching head",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [40, 22], [45, 18]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-133",
+        "text": "bỏ tay vô túi",
+        "translation": "Hands in pockets",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [35, 55]], \"rightArm\": [[50, 28], [65, 42], [65, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-134",
+        "text": "chỉ người này nhìn người kia",
+        "translation": "Point between people",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [25, 32], [15, 35]], \"rightArm\": [[50, 28], [75, 25], [85, 22]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-135",
+        "text": "động tác tự tin (ngón áp ngón)",
+        "translation": "Confidence steeple gesture",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [42, 34], [48, 34]], \"rightArm\": [[50, 28], [58, 34], [52, 34]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-136",
+        "text": "chọt cái gì đó 3 lần",
+        "translation": "Poke something three times",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [30, 30], [15, 30]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-137",
+        "text": "mu & lòng bàn tay chạm nhau",
+        "translation": "Touch palm to back of hand",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [46, 31], [48, 31]], \"rightArm\": [[50, 28], [54, 31], [52, 31]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-138",
+        "text": "chỉ chỉ đồng hồ",
+        "translation": "Tap on imaginary watch",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 32], [28, 32]], \"rightArm\": [[50, 28], [60, 32], [32, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-139",
+        "text": "chấp tay trước ngực",
+        "translation": "Clasp hands in front of chest",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [42, 34], [48, 34]], \"rightArm\": [[50, 28], [58, 34], [52, 34]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-140",
+        "text": "tay ra số liệt kê",
+        "translation": "Enumerate with fingers",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 30], [22, 28]], \"rightArm\": [[50, 28], [65, 38], [55, 38]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-141",
+        "text": "dang rộng tay",
+        "translation": "Spread arms wide open",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [20, 28], [5, 28]], \"rightArm\": [[50, 28], [80, 28], [95, 28]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-142",
+        "text": "tay tạo chữ \"C\"",
+        "translation": "Make 'C' shape with hand",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 32], [25, 35]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-143",
+        "text": "tay cắt dứt khoát chữ cuối",
+        "translation": "Make a decisive hand cut",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [38, 42], [28, 52]], \"rightArm\": [[50, 28], [70, 22], [85, 15]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-144",
+        "text": "úp tay xuống",
+        "translation": "Keep palms facing down",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 32], [20, 32]], \"rightArm\": [[50, 28], [68, 32], [80, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-145",
+        "text": "Giơ tay thấp đầu hàng",
+        "translation": "Raise hands low in surrender",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 22], [28, 18]], \"rightArm\": [[50, 28], [68, 22], [72, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-146",
+        "text": "bàn tay - ngắt từng tầng dọc",
+        "translation": "Vertical layering hand chops",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 35], [35, 48]], \"rightArm\": [[50, 28], [65, 22], [65, 10]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-147",
+        "text": "bàn tay - ngắt từng tầng ngang",
+        "translation": "Horizontal layering hand cuts",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [30, 32], [18, 32]], \"rightArm\": [[50, 28], [65, 22], [82, 22]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-148",
+        "text": "Lắc tay ra hiệu đi tới",
+        "translation": "Wave to come over",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 32], [25, 28]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-149",
+        "text": "giơ tay ngang",
+        "translation": "Extend arms horizontally",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [25, 28], [10, 28]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-150",
+        "text": "vẽ trong không khí",
+        "translation": "Draw shapes in the air",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 26], [22, 18]], \"rightArm\": [[50, 28], [68, 26], [78, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-151",
+        "text": "giơ 3 ngón",
+        "translation": "Raise three fingers",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 30], [28, 26]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-152",
+        "text": "tay xoay tròn",
+        "translation": "Rotate hands around each other",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [42, 32], [46, 30]], \"rightArm\": [[50, 28], [58, 32], [54, 34]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-153",
+        "text": "tay này cầm bỏ vào tay kia",
+        "translation": "Transfer item from hand to hand",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 35], [44, 35]], \"rightArm\": [[50, 28], [62, 32], [46, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-154",
+        "text": "tay tạo vòm",
+        "translation": "Form an arch with hands",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 22], [45, 18]], \"rightArm\": [[50, 28], [65, 22], [55, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-155",
+        "text": "động tác chấp tay chỉa về phía trước",
+        "translation": "Point forward with clasped hands",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [40, 32], [30, 32]], \"rightArm\": [[50, 28], [60, 32], [30, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-156",
+        "text": "ngửa tay hứng",
+        "translation": "Hold palm flat facing up",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 35], [22, 35]], \"rightArm\": [[50, 28], [68, 35], [78, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-157",
+        "text": "cử chỉ đếm tiền",
+        "translation": "Rub fingers like counting money",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [38, 32], [44, 32]], \"rightArm\": [[50, 28], [62, 32], [56, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-158",
+        "text": "tay ra sau ót",
+        "translation": "Place hand behind neck",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [62, 18], [48, 15]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-159",
+        "text": "gãi đầu",
+        "translation": "Scratching head",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [65, 18], [53, 12]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-160",
+        "text": "tay bóp trán",
+        "translation": "Massage your forehead",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [62, 20], [51, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-161",
+        "text": "Tay hứng nước",
+        "translation": "Cup hands for water",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [38, 35], [46, 35]], \"rightArm\": [[50, 28], [62, 35], [54, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-162",
+        "text": "Khoanh tay & chống cằm",
+        "translation": "Cross arms resting chin on hand",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [40, 32], [55, 32]], \"rightArm\": [[50, 28], [60, 25], [50, 20]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-163",
+        "text": "Hai bàn tay xoa xoa chậm",
+        "translation": "Slowly rub palms together",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [44, 32], [48, 32]], \"rightArm\": [[50, 28], [56, 32], [52, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-164",
+        "text": "Tay làm biểu tượng tròn Ok",
+        "translation": "Make an OK finger circle",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 28], [25, 28]], \"rightArm\": [[50, 28], [65, 40], [70, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-165",
+        "text": "Cổ tay lắc 360",
+        "translation": "Rotate wrist 360 degrees",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 30], [20, 30]], \"rightArm\": [[50, 28], [68, 30], [80, 30]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-166",
+        "text": "Cổ tay lắc 180",
+        "translation": "Twist wrist 180 degrees",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 32], [22, 32]], \"rightArm\": [[50, 28], [68, 32], [78, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-167",
+        "text": "Ngón tay chỉ chỉ thái dương mình",
+        "translation": "Point index finger to temple",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [62, 20], [53, 19]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-168",
+        "text": "Tay mở sách",
+        "translation": "Hold hands like opening a book",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [38, 35], [30, 35]], \"rightArm\": [[50, 28], [62, 35], [70, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-169",
+        "text": "Hai cánh tay đan chéo từ chối",
+        "translation": "Cross arms to say no",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [42, 28], [55, 28]], \"rightArm\": [[50, 28], [58, 28], [45, 28]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-170",
+        "text": "Hai bàn tay đan chéo",
+        "translation": "Cross both hands at wrist",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [45, 30], [52, 30]], \"rightArm\": [[50, 28], [55, 30], [48, 30]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-171",
+        "text": "ngón tay chỉ thái dương xoay tròn + đầu gật nhẹ",
+        "translation": "Spin finger at temple and nod",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [62, 20], [53, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-172",
+        "text": "Giơ cao nắm đấm qua đầu",
+        "translation": "Raise fist high above head",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [65, 12], [65, 0]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-173",
+        "text": "Giơ nắm đấm ngang vai",
+        "translation": "Hold fist at shoulder height",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [65, 28], [65, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-174",
+        "text": "Hai ngón trỏ chỉ ra phía trước giơ cao",
+        "translation": "Point both index fingers forward high",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [40, 18], [35, 10]], \"rightArm\": [[50, 28], [60, 18], [65, 10]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-175",
+        "text": "Tay làm biểu tượng trái tim",
+        "translation": "Form a heart shape with hands",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [42, 22], [48, 20]], \"rightArm\": [[50, 28], [58, 22], [52, 20]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-176",
+        "text": "Tay lắc lắc kế bên tai",
+        "translation": "Shake hand next to your ear",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [65, 22], [62, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-177",
+        "text": "Tay ra hiệu cắt cổ",
+        "translation": "Make a throat-cutting sign",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [60, 25], [40, 25]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-178",
+        "text": "Hai bàn tay chạm chạm hai vai",
+        "translation": "Tap shoulders with both hands",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [40, 28], [42, 28]], \"rightArm\": [[50, 28], [60, 28], [58, 28]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-179",
+        "text": "Vẫy vẫy tay thấp",
+        "translation": "Wave hands at waist height",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 40], [25, 48]], \"rightArm\": [[50, 28], [68, 40], [75, 48]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-180",
+        "text": "Lắc ngón trỏ qua lại",
+        "translation": "Wag index finger left and right",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [65, 24], [72, 16]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-181",
+        "text": "2 tay di chuyển tăng cấp",
+        "translation": "Move hands alternately upwards",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 35], [20, 38]], \"rightArm\": [[50, 28], [68, 22], [80, 16]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-182",
+        "text": "tay kéo co",
+        "translation": "Pull an imaginary rope",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 32], [20, 32]], \"rightArm\": [[50, 28], [62, 32], [48, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-183",
+        "text": "Tay làm ống nhòm kê lên mắt",
+        "translation": "Mimic looking through binoculars",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [40, 24], [46, 20]], \"rightArm\": [[50, 28], [60, 24], [54, 20]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-184",
+        "text": "Làm biểu tượng \"coi chừng\" tui",
+        "translation": "Do 'I am watching you' sign",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [38, 24], [46, 20]], \"rightArm\": [[50, 28], [62, 24], [54, 20]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-185",
+        "text": "Tay làm biểu tượng điện thoại",
+        "translation": "Make 'call me' gesture with pinky & thumb",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [65, 25], [55, 22]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-186",
+        "text": "Tay làm biểu tượng \"úm ba la xì bùa\"",
+        "translation": "Make wizard hand movements",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [28, 24], [18, 18]], \"rightArm\": [[50, 28], [72, 24], [82, 18]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-187",
+        "text": "Tay làm biểu tượng tịnh tiến",
+        "translation": "Slide hands forward linearly",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [30, 30], [15, 30]], \"rightArm\": [[50, 28], [70, 30], [85, 30]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-188",
+        "text": "Chỉ bao quát hết mọi người",
+        "translation": "Sweep hand to point at everyone",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [22, 30], [8, 32]], \"rightArm\": [[50, 28], [78, 30], [92, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-189",
+        "text": "Đút tay vào túi",
+        "translation": "Hands in pockets",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [35, 55]], \"rightArm\": [[50, 28], [65, 42], [65, 55]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-190",
+        "text": "Chỉ chỉ xuống đất",
+        "translation": "Point downwards to the ground",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 45], [28, 58]], \"rightArm\": [[50, 28], [65, 45], [72, 58]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-191",
+        "text": "Ngón tay chạm lòng bàn tay",
+        "translation": "Tap one finger on other palm",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 35], [30, 35]], \"rightArm\": [[50, 28], [62, 32], [35, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-192",
+        "text": "1 tay xòe + 1 tay cầm ngón",
+        "translation": "Hold finger with other open hand",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 35], [22, 35]], \"rightArm\": [[50, 28], [60, 32], [24, 35]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-193",
+        "text": "Hai tay tạo thành đoạn khoảng cách",
+        "translation": "Show a distance with two hands",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [32, 32], [22, 32]], \"rightArm\": [[50, 28], [68, 32], [78, 32]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-194",
+        "text": "tay làm động tác ăn",
+        "translation": "Mimic eating food",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [42, 28], [48, 22]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-195",
+        "text": "vẫy tay chào chậm",
+        "translation": "Wave a slow goodbye",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [35, 42], [32, 55]], \"rightArm\": [[50, 28], [68, 22], [78, 12]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      },
+      {
+        "id": "g-196",
+        "text": "động tác coi chừng tui",
+        "translation": "Do warning/watch out sign",
+        "category": "motion",
+        "poseJson": "{\"head\": [50, 18], \"spine\": [[50,18], [50, 55]], \"leftArm\": [[50, 28], [38, 24], [46, 20]], \"rightArm\": [[50, 28], [62, 24], [54, 20]], \"leftLeg\": [[50,55], [35, 85]], \"rightLeg\": [[50,55], [65, 85]]}"
+      }
+    ]
+  },
+  {
+    "id": "preset-emo-classroom",
+    "topic": "Trường học mộng mơ",
+    "type": "emotion",
+    "level": "Easy",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "e1",
+        "text": "Bút chì",
+        "translation": "Pencil"
+      },
+      {
+        "id": "e2",
+        "text": "Bảng đen",
+        "translation": "Blackboard"
+      },
+      {
+        "id": "e3",
+        "text": "Thầy giáo",
+        "translation": "Teacher"
+      },
+      {
+        "id": "e4",
+        "text": "Lớp học",
+        "translation": "Classroom"
+      }
+    ]
+  },
+  {
+    "id": "preset-mot-nature",
+    "topic": "Chinh phục rừng xanh",
+    "type": "motion",
+    "level": "Medium",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "m1",
+        "text": "Báo đốm",
+        "translation": "Jaguar",
+        "category": "pose",
+        "poseJson": "{\"head\": [50, 20], \"spine\": [[50,20], [45,40], [30,55]], \"leftArm\": [[45,40], [55,50], [65,60]], \"rightArm\": [[45,40], [30,30], [20,25]], \"leftLeg\": [[30,55], [35,75], [40,90]], \"rightLeg\": [[30,55], [20,70], [10,85]]}"
+      },
+      {
+        "id": "m2",
+        "text": "Chim ưng",
+        "translation": "Falcon",
+        "category": "pose",
+        "poseJson": "{\"head\": [50, 15], \"spine\": [[50,15], [50,55]], \"leftArm\": [[50,30], [20,25], [5,25]], \"rightArm\": [[50,30], [80,25], [95,25]], \"leftLeg\": [[50,55], [40,85]], \"rightLeg\": [[50,55], [60,85]]}"
+      },
+      {
+        "id": "m3",
+        "text": "Con rùa",
+        "translation": "Turtle",
+        "category": "pose",
+        "poseJson": "{\"head\": [50, 20], \"spine\": [[50,20], [50,55]], \"leftArm\": [[50,30], [30,30], [10,30]], \"rightArm\": [[50,30], [60,40], [65,55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
+      }
+    ]
+  },
+  {
+    "id": "preset-snd-farm",
+    "topic": "Thành phố nông trại",
+    "type": "sound",
+    "level": "Easy",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "s1",
+        "text": "Con vịt",
+        "translation": "Duck",
+        "category": "sound",
+        "soundText": "Quack! Quack! Quack!"
+      },
+      {
+        "id": "s2",
+        "text": "Sư tử",
+        "translation": "Lion",
+        "category": "sound",
+        "soundText": "Roar! Roaaaaar!"
+      },
+      {
+        "id": "s3",
+        "text": "Con cừu",
+        "translation": "Sheep",
+        "category": "sound",
+        "soundText": "Baaah! Baaaah!"
+      }
+    ]
+  },
+  {
+    "id": "lesson-1780050061911-5cp7",
+    "topic": "Trường học mộng mơ (Emotion Library)",
+    "type": "emotion",
+    "level": "Easy",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "e1",
+        "text": "Bút chì",
+        "translation": "Pencil",
+        "category": "emotion"
+      },
+      {
+        "id": "e2",
+        "text": "Trốn tìm",
+        "translation": "Hide and seek",
+        "category": "emotion"
+      }
+    ]
+  },
+  {
+    "id": "lesson-1780050066234-zjsm",
+    "topic": "Trường học mộng mơ (Emotion Library)",
+    "type": "emotion",
+    "level": "Easy",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "e1",
+        "text": "Bút chì",
+        "translation": "Pencil",
+        "category": "emotion"
+      },
+      {
+        "id": "e2",
+        "text": "Trốn tìm",
+        "translation": "Hide and seek",
+        "category": "emotion"
+      }
+    ]
+  },
+  {
+    "id": "lesson-1780050067965-25c8",
+    "topic": "Trường học mộng mơ (Emotion Library)",
+    "type": "emotion",
+    "level": "Easy",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "e1",
+        "text": "Bút chì",
+        "translation": "Pencil",
+        "category": "emotion"
+      },
+      {
+        "id": "e2",
+        "text": "Trốn tìm",
+        "translation": "Hide and seek",
+        "category": "emotion"
+      }
+    ]
+  },
+  {
+    "id": "lesson-1780050207352-5946",
+    "topic": "Trường học mộng mơ",
+    "type": "emotion",
+    "level": "Easy",
+    "language": "vi",
+    "cues": [
+      {
+        "id": "e1",
+        "text": "Bút chì",
+        "translation": "Pencil",
+        "category": "emotion"
+      },
+      {
+        "id": "e2",
+        "text": "Trốn tìm",
+        "translation": "Hide and seek",
+        "category": "emotion"
+      }
+    ]
+  }
+]

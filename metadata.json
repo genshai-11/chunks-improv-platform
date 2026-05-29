@@ -1,0 +1,6 @@
+{
+  "name": "Improv Platform",
+  "description": "Teacher-led live classroom tool for spontaneous speaking with timed, auto-playing rounds.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

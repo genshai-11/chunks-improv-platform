@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-stage: #0C0606;
+  --color-panel: #140A0A;
+  --color-panel-soft: #1E1010;
+  --color-m: #22C55E;
+  --color-m-deep: #15803D;
+  --color-m-soft: #DCFCE7;
+  --color-s: #EF4444;
+  --color-s-deep: #B91C1C;
+  --color-s-soft: #FEE2E2;
+  --color-e: #3B82F6;
+  --color-e-deep: #1D4ED8;
+  --color-e-soft: #DBEAFE;
+  --color-warning: #EF4444;
+  --color-danger: #EF4444;
+
+  --animate-fade-in: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-scale-up: scale-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-pulse-slow: pulse-slow 3s ease-in-out infinite;
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scale-up {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+  }
+}
+
+body {
+  background-color: #0C0606; /* Deep Cinematic Dark Red Base */
+  color: #F8FAFC;
+  font-family: "Inter", system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1A2238;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #232D4C;
+}
