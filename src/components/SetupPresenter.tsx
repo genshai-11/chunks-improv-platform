@@ -234,6 +234,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const [aiGenerating, setAiGenerating] = useState<boolean>(false);
   const [deletingLessonId, setDeletingLessonId] = useState<string | null>(null);
   const [generatingAudioLessonId, setGeneratingAudioLessonId] = useState<string | null>(null);
+  const [loadedLessonId, setLoadedLessonId] = useState<string | null>(null);
+  const [sampleCardCount, setSampleCardCount] = useState<number>(5);
 
   // 9Router Testing states
   const [routerTesting, setRouterTesting] = useState<boolean>(false);
@@ -311,6 +313,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
   // Handle resetting or reloading tab default presets on demand
   const handleLoadModePresets = () => {
+    setLoadedLessonId(null);
     if (activeTab === 'motion') {
       setCustomCues([
         { id: 'm1', text: 'Báo đốm', translation: 'Jaguar', category: 'motion', poseJson: '{"head": [50, 20], "spine": [[50,20], [45,40], [30,55]], "leftArm": [[45,40], [55,50], [65,60]], "rightArm": [[45,40], [30,30], [20,25]], "leftLeg": [[30,55], [35,75], [40,90]], "rightLeg": [[30,55], [20,70], [10,85]]}' },
@@ -345,6 +348,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: loadedLessonId,
           topic: topic.trim(),
           type: activeTab,
           level,
@@ -354,6 +358,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
         })
       });
       if (response.ok) {
+        const data = await response.json();
+        if (data.lesson && data.lesson.id) {
+          setLoadedLessonId(data.lesson.id);
+        }
         setDbStatusMsg("✅ Successfully saved library lesson!");
         loadLessons();
         setTimeout(() => setDbStatusMsg(''), 2500);
@@ -449,6 +457,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   };
 
   const handleLoadLesson = (lesson: any) => {
+    setLoadedLessonId(lesson.id);
     setActiveTab(lesson.type);
     setTopic(lesson.topic);
     setLevel(lesson.level || 'Easy');
@@ -545,27 +554,30 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           wordType,
           level,
           language,
-          count: 5,
+          count: sampleCardCount,
           nineRouterConfig
         })
       });
       if (res.ok) {
         const data = await res.json();
         if (data.cues && data.cues.length > 0) {
+          const soundViPresets = ['Gâu Gâu! 🐕', 'Meo Meo! 🐈', 'Quác Quác! 🦆', 'Ò ó o! 🐓', 'Oạp Oạp! 🐸', 'Húuuu! 🐺', 'U uuu! 🦍', 'Chíp Chíp! 🐥'];
+          const soundEnPresets = ['Woof Woof! 🐕', 'Meow Meow! 🐈', 'Quack Quack! 🦆', 'Cock-a-doodle-doo! 🐓', 'Ribbit Ribbit! 🐸', 'Awooooo! 🐺', 'Hoot Hoot! 🦉', 'Tweet Tweet! 🐥'];
+          
           const adapted = data.cues.map((cue: any, i: number) => ({
-            id: `llm-${Date.now()}-${i}`,
+            id: `llm-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
             text: cue.text,
             translation: cue.translation,
             category: activeTab,
             poseJson: activeTab === 'motion' ? POSE_PRESETS[i % POSE_PRESETS.length].coords : undefined,
-            soundText: activeTab === 'sound' ? (language === 'vi' ? 'Oạp Oạp!' : 'Chomp Chomp!') : undefined
+            soundText: activeTab === 'sound' ? (language === 'vi' ? soundViPresets[i % soundViPresets.length] : soundEnPresets[i % soundEnPresets.length]) : undefined
           }));
           setCustomCues(adapted);
           // Set first cue as expanded so they see details easily
           if (adapted.length > 0) {
             setExpandedCueId(adapted[0].id);
           }
-          setDbStatusMsg("✅ Cues loaded! Build or hit Launch speaking HUD.");
+          setDbStatusMsg(`✅ Generated ${adapted.length} scenic cues using AI!`);
           setTimeout(() => setDbStatusMsg(''), 4000);
         } else {
           throw new Error("Returned cues list was empty");
@@ -698,7 +710,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
       level,
       language,
       duration,
-      mode: activeTab
+      mode: activeTab,
+      count: sampleCardCount
     }, ttsMode, customCues);
   };
 
@@ -931,9 +944,28 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             <div className={`p-4 rounded-xl border ${theme === 'black' ? 'bg-neutral-950/20' : 'bg-slate-50/50'}`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Draft Lesson Cards ({customCues.length})
-                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      Draft Lesson Cards ({customCues.length})
+                    </h3>
+                    {loadedLessonId && (
+                      <span className="text-[9px] font-black uppercase bg-amber-500/15 border border-amber-500/35 text-amber-500 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                        <span>✏️ Editing Saved Lesson</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoadedLessonId(null);
+                            setDbStatusMsg("Switched mode: Save will now create a NEW Lesson copy 📑");
+                            setTimeout(() => setDbStatusMsg(''), 3000);
+                          }}
+                          className="hover:text-red-500 font-extrabold ml-1 text-[10px] cursor-pointer"
+                          title="Click to detach and Save as a new copy"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    )}
+                  </div>
                   <p className={`text-[10px] ${smallText}`}>
                     Define spontaneous items that students must read, speak or perform. Click to expand and tweak.
                   </p>
@@ -1027,6 +1059,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                                 ({cue.translation})
                               </span>
                             )}
+
+                            {/* Volatile audios cache indicators */}
+                            <div className="flex gap-1 items-center shrink-0 select-none text-[8px] font-mono font-bold leading-none">
+                              <span className={`px-1 rounded-sm ${
+                                cue.audioVi ? 'bg-emerald-500/20 text-emerald-400 font-extrabold' : 'bg-neutral-800 text-neutral-500 line-through'
+                              }`} title={cue.audioVi ? "Vocal VI sẵn sàng" : "Chưa có audio VI"}>
+                                VI
+                              </span>
+                              <span className={`px-1 rounded-sm ${
+                                cue.audioEn ? 'bg-emerald-500/20 text-emerald-400 font-extrabold' : 'bg-neutral-800 text-neutral-500 line-through'
+                              }`} title={cue.audioEn ? "Vocal EN sẵn sàng" : "Chưa có audio EN"}>
+                                EN
+                              </span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
@@ -1159,31 +1205,31 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             </div>
 
             {/* Launch Parameter Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 pt-3 font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-3 font-sans">
               <div className="space-y-1.5">
                 <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Speaking Language</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setLanguage('vi')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-black tracking-wide text-center cursor-pointer transition-all ${
+                    className={`py-2 px-1 rounded-xl border text-[10px] font-black tracking-wide text-center cursor-pointer transition-all ${
                       language === 'vi'
                         ? 'bg-red-500/10 border-red-500 text-red-500 font-extrabold'
                         : (theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-500 hover:text-slate-300' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 shadow-xs')
                     }`}
                   >
-                    🇻🇳 VIETNAMESE
+                    🇻🇳 VI
                   </button>
                   <button
                     type="button"
                     onClick={() => setLanguage('en')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-black tracking-wide text-center cursor-pointer transition-all ${
+                    className={`py-2 px-1 rounded-xl border text-[10px] font-black tracking-wide text-center cursor-pointer transition-all ${
                       language === 'en'
                         ? 'bg-red-500/10 border-red-500 text-red-500 font-extrabold'
                         : (theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-500 hover:text-slate-300' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 shadow-xs')
                     }`}
                   >
-                    🇬🇧 ENGLISH
+                    🇬🇧 EN
                   </button>
                 </div>
               </div>
@@ -1217,6 +1263,21 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
               </div>
 
               <div className="space-y-1.5">
+                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Số lượng thẻ (Cues)</label>
+                <select
+                  value={sampleCardCount}
+                  onChange={(e) => setSampleCardCount(Number(e.target.value))}
+                  className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                >
+                  <option value={3} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>3 Thẻ (3 Cues)</option>
+                  <option value={5} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>5 Thẻ (5 Cues)</option>
+                  <option value={8} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>8 Thẻ (8 Cues)</option>
+                  <option value={10} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>10 Thẻ (10 Cues)</option>
+                  <option value={15} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>15 Thẻ (15 Cues)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Pacing Timer</label>
                   <span className="text-red-500 font-black text-xs">{duration}s</span>
@@ -1238,10 +1299,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   onChange={(e) => setTtsMode(e.target.value as any)}
                   className={`w-full px-3 py-2 border rounded-xl text-xs font-bold cursor-pointer ${innerBg}`}
                 >
-                  <option value="9router" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>9Router TTS 📻 (Mặc định)</option>
-                  <option value="gemini" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Gemini Premium AI ⭐</option>
-                  <option value="local" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Local Web Voice (Fast)</option>
-                  <option value="silent" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>No Speech (Silent)</option>
+                  <option value="9router" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>9Router TTS 📻</option>
+                  <option value="gemini" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Gemini AI ⭐</option>
+                  <option value="local" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Local Voice</option>
+                  <option value="silent" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Silent</option>
                 </select>
               </div>
             </div>
@@ -1402,66 +1463,72 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                           : (theme === 'black' ? 'bg-neutral-950/40 hover:bg-[#110A0A]/45 border-neutral-900' : 'bg-slate-50/50 hover:bg-slate-50 border-slate-200 shadow-2xs')
                       }`}
                     >
-                      {/* Flex row for basic information and chevron indicator */}
-                      <div 
-                        onClick={() => setExpandedLessonId(isLessonExpanded ? null : les.id)}
-                        className="flex items-start justify-between gap-4 cursor-pointer"
-                      >
-                        <div className="space-y-1.5 flex-1 min-w-0">
-                          <div className="flex gap-1.5 items-center flex-wrap leading-none">
-                            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded leading-none ${
-                              les.type === 'motion' ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500' :
-                              les.type === 'sound' ? 'bg-red-500/10 border border-red-500/30 text-red-500' :
-                              'bg-blue-500/10 border border-blue-500/30 text-blue-500'
-                            }`}>
-                              {les.type === 'emotion' ? 'WORDS' : les.type}
-                            </span>
-                            <span className={`text-[9px] font-semibold font-mono ${smallText}`}>
-                              {les.language === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'} • {totalCues} cue cards
-                            </span>
-                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none flex items-center gap-1 ${
-                              hasAllAudios 
-                                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-extrabold' 
-                                : 'bg-amber-500/10 border border-amber-500/30 text-amber-500'
-                            }`} title="Trạng thái giọng đọc lưu trữ trong Database">
-                              🔊 {presentAudios}/{totalPossibleAudios} Vocals Cached
-                            </span>
-                            {isCurrentlyActive && (
-                              <span className="text-[8px] bg-red-500 text-white font-black px-1 rounded uppercase tracking-wide leading-none animate-pulse">ACTIVE ON HUDS</span>
+                      {/* Row layout with isolated click targets for expand and deletion actions */}
+                      <div className="flex items-start justify-between gap-4">
+                        {/* Expandable info block */}
+                        <div 
+                          onClick={() => setExpandedLessonId(isLessonExpanded ? null : les.id)}
+                          className="flex-1 min-w-0 cursor-pointer flex items-start gap-4"
+                        >
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex gap-1.5 items-center flex-wrap leading-none">
+                              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded leading-none ${
+                                les.type === 'motion' ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500' :
+                                les.type === 'sound' ? 'bg-red-500/10 border border-red-500/30 text-red-500' :
+                                'bg-blue-500/10 border border-blue-500/30 text-blue-500'
+                              }`}>
+                                {les.type === 'emotion' ? 'WORDS' : les.type}
+                              </span>
+                              <span className={`text-[9px] font-semibold font-mono ${smallText}`}>
+                                {les.language === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'} • {totalCues} cue cards
+                              </span>
+                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none flex items-center gap-1 ${
+                                hasAllAudios 
+                                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-extrabold' 
+                                  : 'bg-amber-500/10 border border-amber-500/30 text-amber-500'
+                              }`} title="Trạng thái giọng đọc lưu trữ trong Database">
+                                🔊 {presentAudios}/{totalPossibleAudios} Vocals Cached
+                              </span>
+                              {isCurrentlyActive && (
+                                <span className="text-[8px] bg-red-500 text-white font-black px-1 rounded uppercase tracking-wide leading-none animate-pulse">ACTIVE ON HUDS</span>
+                              )}
+                            </div>
+
+                            <h3 className={`text-sm font-extrabold group-hover:text-red-500 transition-all truncate ${headerText}`}>
+                              {les.topic}
+                            </h3>
+
+                            {!isLessonExpanded && (
+                              <p className={`text-[10px] truncate leading-none ${smallText}`}>
+                                Cues sample: {les.cues?.map((c: any) => `"${c.text}"`).join(', ') || 'none'}
+                              </p>
                             )}
                           </div>
 
-                          <h3 className={`text-sm font-extrabold group-hover:text-red-500 transition-all truncate ${headerText}`}>
-                            {les.topic}
-                          </h3>
-
-                          {!isLessonExpanded && (
-                            <p className={`text-[10px] truncate leading-none ${smallText}`}>
-                              Cues sample: {les.cues?.map((c: any) => `"${c.text}"`).join(', ') || 'none'}
-                            </p>
-                          )}
+                          <div className="p-1 rounded-lg border border-neutral-900/55 dark:border-neutral-800 text-slate-400 self-start">
+                            {isLessonExpanded ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </div>
                         </div>
 
+                        {/* Stably isolated action buttons */}
                         <div className="flex items-center gap-2 shrink-0 self-start">
                           {deletingLessonId === les.id ? (
-                            <div className="flex items-center gap-1 p-1 border border-red-500/40 rounded-lg bg-red-500/5 animate-pulse" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 p-1 border border-red-500/40 rounded-lg bg-red-500/5 animate-pulse">
                               <span className="text-[8px] font-black text-red-500 uppercase">XÓA?</span>
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleExecuteDeleteLesson(les.id);
-                                }}
+                                onClick={() => handleExecuteDeleteLesson(les.id)}
                                 className="px-1.5 py-0.5 rounded bg-red-650 hover:bg-red-700 text-white font-black text-[9px] uppercase cursor-pointer"
                               >
                                 Có
                               </button>
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeletingLessonId(null);
-                                }}
+                                onClick={() => setDeletingLessonId(null)}
                                 className="px-1.5 py-0.5 rounded bg-slate-600 hover:bg-slate-700 text-white font-black text-[9px] uppercase cursor-pointer"
                               >
                                 Hủy
@@ -1470,10 +1537,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                           ) : (
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteLesson(les.id, e);
-                              }}
+                              onClick={() => setDeletingLessonId(les.id)}
                               className={`p-1.5 rounded-lg border opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer ${
                                 theme === 'black' 
                                   ? 'bg-neutral-950 hover:bg-red-950 border-neutral-900 text-slate-500 hover:text-red-400' 
@@ -1484,14 +1548,6 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          
-                          <div className="p-1 rounded-lg border border-neutral-900/55 dark:border-neutral-800 text-slate-400">
-                            {isLessonExpanded ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </div>
                         </div>
                       </div>
 

@@ -248,7 +248,7 @@ export default function App() {
           wordType: config.wordType,
           level: config.level,
           language: config.language,
-          count: 6, // Prefetch 6 primary items
+          count: config.count || 6,
           nineRouterConfig: nineRouterConfig // Passthrough model configs seamlessly
         })
       });
@@ -264,8 +264,25 @@ export default function App() {
         throw new Error("Generative server returned blank cue array.");
       }
 
-      setStageCues(data.cues);
-      await preloadAudioForCues(data.cues, selectedTtsMode, config.language);
+      const soundViPresets = ['Gâu Gâu! 🐕', 'Meo Meo! 🐈', 'Quác Quác! 🦆', 'Ò ó o! 🐓', 'Oạp Oạp! 🐸', 'Húuuu! 🐺', 'U uuu! 🦍', 'Chíp Chíp! 🐥'];
+      const soundEnPresets = ['Woof Woof! 🐕', 'Meow Meow! 🐈', 'Quack Quack! 🦆', 'Cock-a-doodle-doo! 🐓', 'Ribbit Ribbit! 🐸', 'Awooooo! 🐺', 'Hoot Hoot! 🦉', 'Tweet Tweet! 🐥'];
+      const POSE_PRESETS = [
+        { coords: '{"head": [50, 15], "spine": [[50,15], [50,55]], "leftArm": [[50,30], [20,25], [5,25]], "rightArm": [[50,30], [80,25], [95,25]], "leftLeg": [[50,55], [40,85]], "rightLeg": [[50,55], [60,85]]}' },
+        { coords: '{"head": [50, 20], "spine": [[50,20], [45,40], [30,55]], "leftArm": [[45,40], [55,50], [65,60]], "rightArm": [[45,40], [30,30], [20,25]], "leftLeg": [[30,55], [35,75], [40,90]], "rightLeg": [[30,55], [20,70], [10,85]]}' },
+        { coords: '{"head": [50, 18], "spine": [[50,18], [50,55]], "leftArm": [[50,28], [30,28], [15,15]], "rightArm": [[50,28], [70,28], [85,40]], "leftLeg": [[50,55], [35,85]], "rightLeg": [[50,55], [65,85]]}' }
+      ];
+
+      const adaptedCues = data.cues.map((cue: any, i: number) => ({
+        id: cue.id || `llm-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
+        text: cue.text,
+        translation: cue.translation,
+        category: config.mode,
+        poseJson: config.mode === 'motion' ? POSE_PRESETS[i % POSE_PRESETS.length].coords : undefined,
+        soundText: config.mode === 'sound' ? (config.language === 'vi' ? soundViPresets[i % soundViPresets.length] : soundEnPresets[i % soundEnPresets.length]) : undefined
+      }));
+
+      setStageCues(adaptedCues);
+      await preloadAudioForCues(adaptedCues, selectedTtsMode, config.language);
       setIsGeneratingInitial(false);
     } catch (err: any) {
       console.error(err);

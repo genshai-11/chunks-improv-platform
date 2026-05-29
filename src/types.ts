@@ -5,6 +5,7 @@ export interface SessionConfig {
   language: 'vi' | 'en';
   duration: number; // default: 3 seconds
   mode: 'motion' | 'sound' | 'emotion'; // Tab/Mode selector
+  count?: number; // customized card counts
 }
 
 export interface CueItem {

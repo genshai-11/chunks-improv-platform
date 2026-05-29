@@ -19,7 +19,9 @@ import {
   MicOff,
   MessageSquareQuote,
   Flame,
-  Brain
+  Brain,
+  Maximize,
+  Minimize
 } from 'lucide-react';
 
 interface StagePresenterProps {
@@ -129,6 +131,34 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   // Buffering States
   const [isPreFetching, setIsPreFetching] = useState<boolean>(false);
   const [bufferError, setBufferError] = useState<string | null>(null);
+
+  // Fullscreen state & controller
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => {
+        console.error("Error attempting to enable full-screen mode:", err.message);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
 
   // Use refs to avoid stale closures in listeners
@@ -313,13 +343,27 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   };
 
   // Assistive Speech voice playback logic (text to speech)
-  const speakCue = useCallback(async (text: string) => {
+  const speakCue = useCallback(async (text: string, cueId?: string) => {
     if (isAudioMuted || activeTtsMode === 'silent') return;
 
     // 1. Instantly tap into our pre-cached audio dictionary if present (Zero delay playback!)
     const currentList = currentCuesRef.current;
-    const currentId = currentList[currentIndexRef.current]?.id || "";
-    const cachedBase64 = audioCache[currentId] || audioCache[text];
+    
+    // Resolve the correct id for the cue card to look up in audioCache
+    let targetId = cueId;
+    if (!targetId) {
+      const exactIndexMatch = currentList[currentIndexRef.current];
+      if (exactIndexMatch && exactIndexMatch.text === text) {
+        targetId = exactIndexMatch.id;
+      } else {
+        const matched = currentList.find(c => c.text === text);
+        if (matched) {
+          targetId = matched.id;
+        }
+      }
+    }
+
+    const cachedBase64 = targetId ? (audioCache[targetId] || audioCache[text]) : audioCache[text];
 
     if (cachedBase64) {
       console.log(`Preloaded TTS cache hit! Instant playback triggered for "${text}" (Zero latency)`);
@@ -441,7 +485,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     if (nextIdx < currentList.length) {
       setCurrentIndex(nextIdx);
       setSecondsRemaining(config.duration);
-      speakCue(currentList[nextIdx].text);
+      speakCue(currentList[nextIdx].text, currentList[nextIdx].id);
       setHistory(prev => {
         if (prev.find(x => x.id === currentList[nextIdx].id)) return prev;
         return [...prev, currentList[nextIdx]];
@@ -493,7 +537,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   // Initial speaking trigger for first item
   useEffect(() => {
     if (cues.length > 0) {
-      speakCue(cues[0].text);
+      speakCue(cues[0].text, cues[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -565,6 +609,19 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
         {/* Audio controls */}
         <div className="flex items-center gap-2">
+          <button 
+            onClick={toggleFullscreen}
+            type="button"
+            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+              isFullscreen 
+                ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20' 
+                : `${pillBg} text-slate-400 hover:text-slate-200`
+            }`}
+            title={isFullscreen ? "Thoát toàn màn hình (Exit Fullscreen)" : "Toàn màn hình (Fullscreen)"}
+          >
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-red-500" /> : <Maximize className="w-3.5 h-3.5 text-red-500" />}
+          </button>
+
           <button 
             onClick={() => setIsAudioMuted(!isAudioMuted)}
             className={`p-1.5 rounded-lg transition-all cursor-pointer ${
@@ -652,10 +709,27 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
           <div className="my-auto py-6 space-y-5">
             {/* Primary Speaking Trigger */}
-            <div className="space-y-3">
-              <h2 className={`text-3xl md:text-5xl font-display font-black tracking-tight animate-scale-up select-all break-words leading-tight drop-shadow-md ${titleColor}`}>
-                {currentCue.text}
-              </h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center gap-3.5 flex-wrap">
+                <h2 className={`text-3xl md:text-5xl font-display font-black tracking-tight animate-scale-up select-all break-words leading-tight drop-shadow-md ${titleColor}`}>
+                  {currentCue.text}
+                </h2>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    speakCue(currentCue.text, currentCue.id);
+                  }}
+                  className={`p-1.5 md:p-2.5 rounded-full border transition-all cursor-pointer active:scale-90 flex items-center justify-center shadow-xs group/speak ${
+                    theme === 'black'
+                      ? 'bg-neutral-900 hover:bg-neutral-850 border-neutral-800 text-red-500 hover:text-red-400 hover:scale-110'
+                      : 'bg-slate-100 hover:bg-slate-200 border-slate-250 text-indigo-650 hover:scale-110'
+                  }`}
+                  title="Phát lại giọng đọc (Replay sound)"
+                >
+                  <Volume2 className="w-5 h-5 md:w-6 md:h-6 text-red-500 animate-pulse group-hover/speak:animate-none" />
+                </button>
+              </div>
               {currentCue.translation && (
                 <p className={`text-base md:text-lg font-serif italic font-medium tracking-wide ${labelColor}`}>
                   {currentCue.translation}
@@ -706,127 +780,6 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             ) : (
               /* Emotion Default Mode - only displays primary text, no hint */
               null
-            )}
-
-            {/* 🎤 Interactive Speaking Practice Recording Portal */}
-            {nineRouterConfig.enabled && (
-              <div id="recording-portal" className={`mt-6 border-t pt-5 text-left max-w-xl mx-auto space-y-3 ${
-                theme === 'black' ? 'border-neutral-900' : 'border-slate-150'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-550 flex items-center gap-1">
-                    <Flame className="w-3 h-3 text-red-500" />
-                    Student Mic Console
-                  </span>
-                  
-                  {isRecording ? (
-                    <span className="text-[9px] text-rose-400 bg-rose-500/5 px-2 py-0.5 rounded-full border border-rose-500/15 font-bold animate-pulse flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                      RECORDING ACTIVE
-                    </span>
-                  ) : (
-                    <span className={`text-[9px] font-bold uppercase tracking-wider font-sans ${textMuted}`}>
-                      {isSTTLoading ? "Transcribing..." : isAnalysisLoading ? "Evaluating..." : "Ready to register speaking"}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {isRecording ? (
-                    <button
-                      type="button"
-                      id="mic-stop-btn"
-                      onClick={stopRecording}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 shadow-lg shadow-red-550/10 cursor-pointer transition-all active:scale-95"
-                    >
-                      <MicOff className="w-3.5 h-3.5" />
-                      <span>Stop & Analyze Speaking</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      id="mic-start-btn"
-                      onClick={startRecording}
-                      disabled={isSTTLoading || isAnalysisLoading}
-                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 shadow-lg shadow-red-500/10 cursor-pointer transition-all active:scale-95 disabled:opacity-40"
-                    >
-                      <Mic className="w-3.5 h-3.5 fill-current" />
-                      <span>Record Answer</span>
-                    </button>
-                  )}
-
-                  {!isRecording && !isSTTLoading && !isAnalysisLoading && recordedText && (
-                    <button
-                      type="button"
-                      id="mic-reset-btn"
-                      onClick={startRecording}
-                      className="text-[11px] text-red-500 hover:text-red-600 underline font-semibold cursor-pointer"
-                    >
-                      Record Again
-                    </button>
-                  )}
-                </div>
-
-                {/* Error status report */}
-                {recordingError && (
-                  <div className="text-[11px] text-rose-450 font-medium bg-rose-500/5 p-2 rounded-lg border border-rose-500/10 flex gap-1.5">
-                    <span className="shrink-0">⚠️</span>
-                    <p>{recordingError}</p>
-                  </div>
-                )}
-
-                {/* STT Output & Coach Report Blocks */}
-                {(isSTTLoading || isAnalysisLoading || recordedText) && (
-                  <div className={`border p-4 rounded-xl space-y-3.5 animate-scale-up shadow-inner ${
-                    theme === 'black' ? 'bg-neutral-950/40 border-neutral-900' : 'bg-slate-50 border-slate-200'
-                  }`}>
-                    
-                    {/* Speech Text transcribing state */}
-                    <div className="space-y-1">
-                      <p className={`text-[9px] uppercase font-bold tracking-wider font-sans ${textMuted}`}>
-                        Transcribed speech chunk:
-                      </p>
-                      {isSTTLoading ? (
-                        <div className="flex items-center gap-2 text-slate-500 text-xs py-1 animate-pulse">
-                          <RefreshCw className="w-3 h-3 animate-spin text-red-500" />
-                          <span>Converting audio streams via 9Router STT...</span>
-                        </div>
-                      ) : (
-                        <p className={`text-xs font-semibold leading-relaxed p-2.5 rounded-lg border ${
-                          theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
-                        }`}>
-                          {recordedText ? `“${recordedText}”` : <span className="text-slate-400 italic">No speech pattern captured.</span>}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* AI Coach Analysis Report */}
-                    {(isAnalysisLoading || analysisFeedback) && (
-                      <div className={`pt-3 space-y-1.5 border-t ${theme === 'black' ? 'border-neutral-900' : 'border-slate-150'}`}>
-                        <p className="text-[9px] uppercase font-bold tracking-wider text-red-500 flex items-center gap-1 font-sans">
-                          <MessageSquareQuote className="w-3 h-3 text-red-500" />
-                          AI Classroom Evaluator feedback:
-                        </p>
-                        {isAnalysisLoading ? (
-                          <div className="flex items-center gap-2 text-slate-500 text-xs py-1 animate-pulse">
-                            <Brain className="w-3 h-3 animate-spin text-red-550" />
-                            <span>Computing speaking metrics...</span>
-                          </div>
-                        ) : (
-                          <div className={`text-xs leading-relaxed font-sans prose prose-invert p-3 rounded-lg border ${
-                            theme === 'black' 
-                              ? 'bg-red-500/5 border-red-500/5 text-slate-300' 
-                              : 'bg-white border-slate-200 text-slate-700'
-                          }`}>
-                            <p className="whitespace-pre-wrap">{analysisFeedback}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                  </div>
-                )}
-              </div>
             )}
           </div>
 
@@ -928,7 +881,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             {history.map((h, i) => (
               <div 
                 key={h.id} 
-                onClick={() => speakCue(h.text)}
+                onClick={() => speakCue(h.text, h.id)}
                 className={`text-[10px] font-semibold py-1.5 px-3 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
                   i === currentIndex 
                     ? 'bg-red-550/10 text-red-500 border-red-500/40 font-bold' 
