@@ -216,13 +216,24 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   // Database lessons loading
   const [savedLessons, setSavedLessons] = useState<any[]>([]);
   const [dbLoading, setDbLoading] = useState<boolean>(false);
+  const [seedingLoading, setSeedingLoading] = useState<boolean>(false);
   const [dbStatusMsg, setDbStatusMsg] = useState<string>('');
   const [dbSearchQuery, setDbSearchQuery] = useState<string>('');
+  const [dbCategoryFilter, setDbCategoryFilter] = useState<'all' | 'motion' | 'sound' | 'emotion'>('all');
+
+  // Dynamically pre-filter database based on currently active launcher tab!
+  useEffect(() => {
+    if (cockpitTab === 'database') {
+      setDbCategoryFilter(activeTab);
+    }
+  }, [cockpitTab, activeTab]);
 
   // Design enhancements: state to manage expandable/collapsible details
   const [expandedCueId, setExpandedCueId] = useState<string | null>('d1');
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<boolean>(false);
+  const [deletingLessonId, setDeletingLessonId] = useState<string | null>(null);
+  const [generatingAudioLessonId, setGeneratingAudioLessonId] = useState<string | null>(null);
 
   // 9Router Testing states
   const [routerTesting, setRouterTesting] = useState<boolean>(false);
@@ -338,7 +349,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           type: activeTab,
           level,
           language,
-          cues: customCues
+          cues: customCues,
+          nineRouterConfig
         })
       });
       if (response.ok) {
@@ -382,7 +394,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             type: 'motion',
             level,
             language,
-            cues: motionCues
+            cues: motionCues,
+            nineRouterConfig
           })
         });
         if (res.ok) savedFoldersCount++;
@@ -398,7 +411,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             type: 'sound',
             level,
             language,
-            cues: soundCues
+            cues: soundCues,
+            nineRouterConfig
           })
         });
         if (res.ok) savedFoldersCount++;
@@ -414,7 +428,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             type: 'emotion',
             level,
             language,
-            cues: emotionCues
+            cues: emotionCues,
+            nineRouterConfig
           })
         });
         if (res.ok) savedFoldersCount++;
@@ -446,14 +461,74 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
   const handleDeleteLesson = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Delete this lesson from JSON storage?")) return;
+    // Use safe state confirmation instead of browserconfirm
+    setDeletingLessonId(id);
+  };
+
+  const handleExecuteDeleteLesson = async (id: string) => {
+    setDbStatusMsg("🗑️ Deleting lesson from JSON storage...");
     try {
       const res = await fetch(`/api/lessons/${id}`, { method: 'DELETE' });
       if (res.ok) {
+        setDbStatusMsg("✅ Successfully deleted lesson from database.");
         loadLessons();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Delete call failed", err);
+      setDbStatusMsg(`❌ Delete failed: ${err.message}`);
+    } finally {
+      setDeletingLessonId(null);
+      setTimeout(() => setDbStatusMsg(''), 3000);
+    }
+  };
+
+  const handleGenerateMissingAudio = async (lessonId: string) => {
+    setGeneratingAudioLessonId(lessonId);
+    setDbStatusMsg("⚡ Scanning cues & synthesizing missing audio voice clips...");
+    try {
+      const res = await fetch(`/api/lessons/${lessonId}/generate-audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nineRouterConfig })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDbStatusMsg(`🎉 Status: ${data.message}`);
+        loadLessons();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Generation error");
+      }
+    } catch (err: any) {
+      setDbStatusMsg(`❌ Audio synthesis failed: ${err.message}`);
+    } finally {
+      setGeneratingAudioLessonId(null);
+      setTimeout(() => setDbStatusMsg(''), 5500);
+    }
+  };
+
+  const handleSeedLessons = async () => {
+    setSeedingLoading(true);
+    setDbStatusMsg("⚡ Seeding beautiful preloaded lessons with HD Audio...");
+    try {
+      const res = await fetch('/api/lessons/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nineRouterConfig })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDbStatusMsg(`🚀 Seeded ${data.seededCount} templates! Total database: ${data.total} lessons.`);
+        loadLessons();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Seeding error");
+      }
+    } catch (err: any) {
+      setDbStatusMsg(`❌ Seeding failed: ${err.message}`);
+    } finally {
+      setSeedingLoading(false);
+      setTimeout(() => setDbStatusMsg(''), 4500);
     }
   };
 
@@ -635,10 +710,12 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const smallText = theme === 'black' ? 'text-slate-500' : 'text-slate-400';
   const borderStyle = theme === 'black' ? 'border-neutral-900' : 'border-slate-200';
 
-  const filteredSavedLessons = savedLessons.filter(l => 
-    l.topic?.toLowerCase().includes(dbSearchQuery.toLowerCase()) ||
-    l.type?.toLowerCase().includes(dbSearchQuery.toLowerCase())
-  );
+  const filteredSavedLessons = savedLessons.filter(l => {
+    const matchesSearch = l.topic?.toLowerCase().includes(dbSearchQuery.toLowerCase()) ||
+                          l.type?.toLowerCase().includes(dbSearchQuery.toLowerCase());
+    if (dbCategoryFilter === 'all') return matchesSearch;
+    return matchesSearch && l.type === dbCategoryFilter;
+  });
 
   return (
     <div id="setup-panel" className="max-w-6xl mx-auto py-2 px-6 h-full flex flex-col justify-center animate-fade-in">
@@ -1227,6 +1304,72 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
               </div>
             </div>
 
+            {/* Category Filter + Seeding Block */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between border-b pb-3 border-style">
+              <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setDbCategoryFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                    dbCategoryFilter === 'all'
+                      ? 'bg-red-500/10 border-red-500/30 text-red-500 font-extrabold'
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Tất cả ({savedLessons.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbCategoryFilter('emotion')}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                    dbCategoryFilter === 'emotion'
+                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 font-extrabold'
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
+                  }`}
+                  title="Chỉ lọc bài học từ vựng"
+                >
+                  Từ vựng (Words List) ({savedLessons.filter(l => l.type === 'emotion').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbCategoryFilter('motion')}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                    dbCategoryFilter === 'motion'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 font-extrabold'
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Motion Poser ({savedLessons.filter(l => l.type === 'motion').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbCategoryFilter('sound')}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                    dbCategoryFilter === 'sound'
+                      ? 'bg-red-500/10 border-red-500/30 text-red-500 font-extrabold'
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Sound Echo ({savedLessons.filter(l => l.type === 'sound').length})
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSeedLessons}
+                disabled={seedingLoading}
+                className={`w-full sm:w-auto px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
+                  theme === 'black'
+                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-550/20 disabled:opacity-50'
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 disabled:opacity-50'
+                }`}
+                title="Tạo sẵn các bộ bài học mẫu phong phú kèm voice audio lưu trong database"
+              >
+                <Database className={`w-3.5 h-3.5 ${seedingLoading ? 'animate-bounce' : ''}`} />
+                <span>{seedingLoading ? "ĐANG NẠP MẪU..." : "TẠO BÀI HỌC MẪU ⚡"}</span>
+              </button>
+            </div>
+
             {filteredSavedLessons.length === 0 ? (
               <div className={`py-12 px-6 text-center border-2 border-dashed rounded-2xl ${borderStyle}`}>
                 <Database className="w-8 h-8 text-slate-600 mx-auto mb-2.5" />
@@ -1240,6 +1383,16 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 {filteredSavedLessons.map((les) => {
                   const isLessonExpanded = expandedLessonId === les.id;
                   const isCurrentlyActive = topic === les.topic;
+                  const totalCues = les.cues?.length || 0;
+                  const totalPossibleAudios = totalCues * 2;
+                  const presentAudios = les.cues?.reduce((acc: number, c: any) => {
+                    let count = 0;
+                    if (c.audioVi) count++;
+                    if (c.audioEn) count++;
+                    return acc + count;
+                  }, 0) || 0;
+                  const hasAllAudios = presentAudios === totalPossibleAudios;
+
                   return (
                     <div
                       key={les.id}
@@ -1261,10 +1414,17 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                               les.type === 'sound' ? 'bg-red-500/10 border border-red-500/30 text-red-500' :
                               'bg-blue-500/10 border border-blue-500/30 text-blue-500'
                             }`}>
-                              {les.type}
+                              {les.type === 'emotion' ? 'WORDS' : les.type}
                             </span>
                             <span className={`text-[9px] font-semibold font-mono ${smallText}`}>
-                              {les.language === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'} • {les.cues?.length || 0} cue cards
+                              {les.language === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'} • {totalCues} cue cards
+                            </span>
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none flex items-center gap-1 ${
+                              hasAllAudios 
+                                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-extrabold' 
+                                : 'bg-amber-500/10 border border-amber-500/30 text-amber-500'
+                            }`} title="Trạng thái giọng đọc lưu trữ trong Database">
+                              🔊 {presentAudios}/{totalPossibleAudios} Vocals Cached
                             </span>
                             {isCurrentlyActive && (
                               <span className="text-[8px] bg-red-500 text-white font-black px-1 rounded uppercase tracking-wide leading-none animate-pulse">ACTIVE ON HUDS</span>
@@ -1283,21 +1443,47 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 self-start">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteLesson(les.id, e);
-                            }}
-                            className={`p-1.5 rounded-lg border opacity-0 group-hover:opacity-100 transition-all cursor-pointer ${
-                              theme === 'black' 
-                                ? 'bg-neutral-950 hover:bg-red-950 border-neutral-900 text-slate-500 hover:text-red-400' 
-                                : 'bg-white hover:bg-rose-50 border-slate-200 text-slate-400 hover:text-rose-600'
-                            }`}
-                            title="Xóa bài học 🗑️"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {deletingLessonId === les.id ? (
+                            <div className="flex items-center gap-1 p-1 border border-red-500/40 rounded-lg bg-red-500/5 animate-pulse" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-[8px] font-black text-red-500 uppercase">XÓA?</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExecuteDeleteLesson(les.id);
+                                }}
+                                className="px-1.5 py-0.5 rounded bg-red-650 hover:bg-red-700 text-white font-black text-[9px] uppercase cursor-pointer"
+                              >
+                                Có
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingLessonId(null);
+                                }}
+                                className="px-1.5 py-0.5 rounded bg-slate-600 hover:bg-slate-700 text-white font-black text-[9px] uppercase cursor-pointer"
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteLesson(les.id, e);
+                              }}
+                              className={`p-1.5 rounded-lg border opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer ${
+                                theme === 'black' 
+                                  ? 'bg-neutral-950 hover:bg-red-950 border-neutral-900 text-slate-500 hover:text-red-400' 
+                                  : 'bg-white hover:bg-rose-50 border-slate-200 text-slate-400 hover:text-rose-600'
+                              }`}
+                              title="Xóa bài học 🗑️"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           
                           <div className="p-1 rounded-lg border border-neutral-900/55 dark:border-neutral-800 text-slate-400">
                             {isLessonExpanded ? (
@@ -1311,8 +1497,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
                       {/* Expanded Section showing all Lesson Cues in collapsible structure */}
                       {isLessonExpanded && (
-                        <div className="mt-1 pt-3 border-t border-dashed border-neutral-900/40 dark:border-neutral-800 animate-scale-up space-y-3 font-sans">
-                          <div className="space-y-1.5">
+                        <div className="mt-1 pt-3 border-t border-dashed border-neutral-900/40 dark:border-neutral-800 animate-scale-up space-y-3 font-sans w-full">
+                          <div className="space-y-1.5 w-full">
                             <span className={`block text-[9px] font-black uppercase text-slate-500`}>Detailed Cue Cards ({les.cues?.length || 0}):</span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto">
                               {les.cues?.map((c: any, i: number) => {
@@ -1330,6 +1516,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                                       {c.translation && (
                                         <span className={`text-[9px] font-normal font-sans ${smallText}`}>({c.translation})</span>
                                       )}
+                                      
+                                      {/* Cues Audio indicators */}
+                                      <div className="flex gap-1 items-center shrink-0 ml-1.5">
+                                        <span className={`text-[8px] font-mono select-none px-1 rounded ${
+                                          c.audioVi ? 'bg-emerald-500/20 text-emerald-400 font-extrabold' : 'bg-neutral-800 text-neutral-500 line-through'
+                                        }`} title={c.audioVi ? "Vocal VI sẵn sàng" : "Chưa có Audio VI"}>
+                                          VI
+                                        </span>
+                                        <span className={`text-[8px] font-mono select-none px-1 rounded ${
+                                          c.audioEn ? 'bg-emerald-500/20 text-emerald-400 font-extrabold' : 'bg-neutral-800 text-neutral-500 line-through'
+                                        }`} title={c.audioEn ? "Vocal EN sẵn sàng" : "Chưa có Audio EN"}>
+                                          EN
+                                        </span>
+                                      </div>
                                     </div>
                                     <span className={`text-[7px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded shrink-0 ${
                                       cueCategory === 'motion' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
@@ -1346,6 +1546,21 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
                           {/* Quick Actions Drawer for the loaded database lesson */}
                           <div className="flex flex-wrap gap-2 items-center justify-end leading-none pt-2 border-t border-neutral-900/20">
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateMissingAudio(les.id)}
+                              disabled={generatingAudioLessonId !== null}
+                              className={`px-3 py-2 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.98] ${
+                                generatingAudioLessonId === les.id
+                                  ? 'bg-amber-500/20 text-amber-500 border-amber-500/30'
+                                  : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
+                              }`}
+                              title="Quốc tế hóa: Kiểm tra & tạo giọng TTS còn thiếu cho các thẻ card này"
+                            >
+                              <Volume2 className={`w-3.5 h-3.5 ${generatingAudioLessonId === les.id ? 'animate-bounce' : ''}`} />
+                              <span>{generatingAudioLessonId === les.id ? "ĐANG TẠO... ⌛" : "TẠO AUDIO THIẾU ⚡"}</span>
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => handleLoadLesson(les)}

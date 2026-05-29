@@ -558,9 +558,75 @@ app.get("/api/lessons", (req, res) => {
   res.json(data);
 });
 
+// Server-side helper to synthesize and return base64 audio
+async function generateAudioBase64(text: string, language: string, nineRouterConfig?: any): Promise<string | null> {
+  if (!text) return null;
+
+  // Try 9Router if enabled
+  if (nineRouterConfig && nineRouterConfig.enabled) {
+    try {
+      const baseUrl = nineRouterConfig.url || "http://localhost:20128";
+      const model = language === "en"
+        ? (nineRouterConfig.ttsModelEn || "edge-tts/en-US-AriaNeural")
+        : (nineRouterConfig.ttsModelVi || "edge-tts/vi-VN-HoaiMyNeural");
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (nineRouterConfig.apiKey) {
+        headers["Authorization"] = `Bearer ${nineRouterConfig.apiKey}`;
+      }
+
+      const response = await fetch(`${baseUrl}/v1/audio/speech?response_format=json`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          input: text
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.audio) return data.audio;
+      }
+    } catch (e) {
+      console.error("Internal generation audio via 9Router failed, trying Gemini:", e);
+    }
+  }
+
+  // Fallback to Gemini
+  const ai = getAIClient();
+  if (ai) {
+    try {
+      const isVi = language === 'vi';
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: [{ parts: [{ text: text }] }],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: isVi ? 'Kore' : 'Zephyr' },
+            },
+          },
+        },
+      });
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        return base64Audio;
+      }
+    } catch (e) {
+      console.error("Internal generation audio via Gemini failed:", e);
+    }
+  }
+
+  return null;
+}
+
 // API: Create or update lesson
-app.post("/api/lessons", (req, res) => {
-  const { id, topic, type, level, language, cues } = req.body;
+app.post("/api/lessons", async (req, res) => {
+  const { id, topic, type, level, language, cues, nineRouterConfig } = req.body;
   if (!topic || !type || !cues) {
     return res.status(400).json({ error: "Missing required fields (topic, type, cues)" });
   }
@@ -568,13 +634,36 @@ app.post("/api/lessons", (req, res) => {
   const lessons = readLessonsDb();
   const lessonId = id || `lesson-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   
+  // Clone cues to ensure local safety
+  const updatedCues = JSON.parse(JSON.stringify(cues));
+
+  // Synthesize audios for newly added cue cards in VI and EN automatically
+  for (const cue of updatedCues) {
+    try {
+      if (!cue.audioVi && cue.text) {
+        console.log(`Auto-generating database audioVi for cue: "${cue.text}"`);
+        const vtAudio = await generateAudioBase64(cue.text, "vi", nineRouterConfig);
+        if (vtAudio) cue.audioVi = vtAudio;
+      }
+      
+      const enText = cue.translation || cue.text;
+      if (!cue.audioEn && enText) {
+        console.log(`Auto-generating database audioEn for cue: "${enText}"`);
+        const enAudio = await generateAudioBase64(enText, "en", nineRouterConfig);
+        if (enAudio) cue.audioEn = enAudio;
+      }
+    } catch (err: any) {
+      console.warn(`Error generating audio for "${cue.text}":`, err.message);
+    }
+  }
+
   const newLesson = {
     id: lessonId,
     topic,
     type,
     level: level || "Easy",
     language: language || "vi",
-    cues
+    cues: updatedCues
   };
 
   const existingIndex = lessons.findIndex((l: any) => l.id === lessonId);
@@ -588,6 +677,95 @@ app.post("/api/lessons", (req, res) => {
   res.json({ success: true, lesson: newLesson });
 });
 
+// API: Seed Default sample lessons with customized Audio
+app.post("/api/lessons/seed", async (req, res) => {
+  const { nineRouterConfig } = req.body;
+  const lessons = readLessonsDb();
+
+  const seedLessons = [
+    {
+      id: "seed-words-office",
+      topic: "Đời sống Công sở (Words List)",
+      type: "emotion",
+      level: "Medium",
+      language: "vi",
+      cues: [
+        { id: "sw1", text: "Thăng tiến", translation: "Promotion" },
+        { id: "sw2", text: "Bàn làm việc", translation: "Office desk" },
+        { id: "sw3", text: "Sếp khó tính", translation: "Grumpy boss" },
+        { id: "sw4", text: "Đồng nghiệp", translation: "Co-workers" },
+        { id: "sw5", text: "Tăng ca đêm", translation: "Overtime midnight" }
+      ]
+    },
+    {
+      id: "seed-words-travel",
+      topic: "Du lịch Bốn phương (Words List)",
+      type: "emotion",
+      level: "Easy",
+      language: "vi",
+      cues: [
+        { id: "st1", text: "Bãi biển", translation: "Sunny beach" },
+        { id: "st2", text: "Khách sạn", translation: "Luxury hotel" },
+        { id: "st3", text: "Máy bay", translation: "Commercial airplane" },
+        { id: "st4", text: "Bản đồ", translation: "Tourist map" },
+        { id: "st5", text: "Máy ảnh", translation: "Vintage camera" }
+      ]
+    },
+    {
+      id: "seed-motion-fitness",
+      topic: "Động tác Thể thao (Motion List)",
+      type: "motion",
+      level: "Hard",
+      language: "vi",
+      cues: [
+        { id: "sm1", text: "Gánh tạ", translation: "Squat exercise", category: "pose", poseJson: "{\"head\": [50, 25], \"spine\": [[50,25], [50,55]], \"leftArm\": [[50,30], [25,20]], \"rightArm\": [[50,30], [75,20]], \"leftLeg\": [[50,55], [30,70], [35,85]], \"rightLeg\": [[50,55], [70,70], [65,85]]}" },
+        { id: "sm2", text: "Nhảy dây", translation: "Jump rope", category: "pose", poseJson: "{\"head\": [50, 15], \"spine\": [[50,15], [50,55]], \"leftArm\": [[50,30], [20,40], [10,25]], \"rightArm\": [[50,30], [80,40], [90,25]], \"leftLeg\": [[50,55], [45,80]], \"rightLeg\": [[50,55], [55,80]]}" }
+      ]
+    },
+    {
+      id: "seed-sound-jungle",
+      topic: "Thuộc địa Rừng sâu (Sound List)",
+      type: "sound",
+      level: "Medium",
+      language: "vi",
+      cues: [
+        { id: "ss1", text: "Tiếng gió rít", translation: "Wind howling", category: "sound", soundText: "Whooooosh!" },
+        { id: "ss2", text: "Tiếng mưa rơi", translation: "Rain dripping", category: "sound", soundText: "Pitter-patter!" },
+        { id: "ss3", text: "Ếch kêu", translation: "Frog croaking", category: "sound", soundText: "Ribbit! Ribbit!" }
+      ]
+    }
+  ];
+
+  let addedCount = 0;
+  for (const sl of seedLessons) {
+    const exists = lessons.some((l: any) => l.topic === sl.topic);
+    if (!exists) {
+      // Synthesize sound for newly added cues!
+      for (const cue of sl.cues) {
+        try {
+          const audioVi = await generateAudioBase64(cue.text, "vi", nineRouterConfig);
+          if (audioVi) (cue as any).audioVi = audioVi;
+          
+          const audioEn = await generateAudioBase64(cue.translation || cue.text, "en", nineRouterConfig);
+          if (audioEn) (cue as any).audioEn = audioEn;
+        } catch (e) {
+          console.error(`Synthesizing seeded cue "${cue.text}" failed:`, e);
+        }
+      }
+      lessons.push(sl);
+      addedCount++;
+    }
+  }
+
+  if (addedCount > 0) {
+    writeLessonsDb(lessons);
+  }
+
+  res.json({ success: true, seededCount: addedCount, total: lessons.length });
+});
+
+// API: Delete custom lesson
+
 // API: Delete custom lesson
 app.delete("/api/lessons/:id", (req, res) => {
   const { id } = req.params;
@@ -595,6 +773,70 @@ app.delete("/api/lessons/:id", (req, res) => {
   const filtered = lessons.filter((l: any) => l.id !== id);
   writeLessonsDb(filtered);
   res.json({ success: true, idDeleted: id });
+});
+
+// API: Check & Generate missing audios for a lesson
+app.post("/api/lessons/:id/generate-audio", async (req, res) => {
+  const { id } = req.params;
+  const { nineRouterConfig } = req.body;
+  const lessons = readLessonsDb();
+  const lessonIndex = lessons.findIndex((l: any) => l.id === id);
+  
+  if (lessonIndex === -1) {
+    return res.status(404).json({ error: "Lesson not found" });
+  }
+
+  const lesson = lessons[lessonIndex];
+  if (!lesson.cues) {
+    return res.json({ success: true, message: "No cues found in this lesson", checked: 0, generated: 0 });
+  }
+
+  let generatedCount = 0;
+  let skippedCount = 0;
+
+  for (const cue of lesson.cues) {
+    try {
+      // Check VI audio
+      if (!cue.audioVi && cue.text) {
+        console.log(`Generating missing database audioVi for cue: "${cue.text}"`);
+        const vtAudio = await generateAudioBase64(cue.text, "vi", nineRouterConfig);
+        if (vtAudio) {
+          cue.audioVi = vtAudio;
+          generatedCount++;
+        }
+      } else {
+        skippedCount++;
+      }
+
+      // Check EN audio
+      const enText = cue.translation || cue.text;
+      if (!cue.audioEn && enText) {
+        console.log(`Generating missing database audioEn for cue: "${enText}"`);
+        const enAudio = await generateAudioBase64(enText, "en", nineRouterConfig);
+        if (enAudio) {
+          cue.audioEn = enAudio;
+          generatedCount++;
+        }
+      } else {
+        skippedCount++;
+      }
+    } catch (err: any) {
+      console.error(`Error generating audio for cue "${cue.text}":`, err.message);
+    }
+  }
+
+  if (generatedCount > 0) {
+    lessons[lessonIndex] = lesson;
+    writeLessonsDb(lessons);
+  }
+
+  res.json({
+    success: true,
+    message: `Generated ${generatedCount} missing voiceovers, skipped ${skippedCount} already present.`,
+    generated: generatedCount,
+    skipped: skippedCount,
+    total: lesson.cues.length * 2
+  });
 });
 
 
@@ -688,6 +930,47 @@ app.post("/api/tts", async (req, res) => {
 
 // Configure Vite middleware and static asset server
 async function startServer() {
+  // Auto-seed if database is currently empty (Zero configuration initialization!)
+  try {
+    const lessons = readLessonsDb();
+    if (lessons.length === 0) {
+      console.log("lessons_db.json is empty. Auto-seeding default Words List collections...");
+      const seedLessons = [
+        {
+          id: "seed-words-office",
+          topic: "Đời sống Công sở (Words List)",
+          type: "emotion",
+          level: "Medium",
+          language: "vi",
+          cues: [
+            { id: "sw1", text: "Thăng tiến", translation: "Promotion" },
+            { id: "sw2", text: "Bàn làm việc", translation: "Office desk" },
+            { id: "sw3", text: "Sếp khó tính", translation: "Grumpy boss" },
+            { id: "sw4", text: "Đồng nghiệp", translation: "Co-workers" },
+            { id: "sw5", text: "Tăng ca đêm", translation: "Overtime midnight" }
+          ]
+        },
+        {
+          id: "seed-words-travel",
+          topic: "Du lịch Bốn phương (Words List)",
+          type: "emotion",
+          level: "Easy",
+          language: "vi",
+          cues: [
+            { id: "st1", text: "Bãi biển", translation: "Sunny beach" },
+            { id: "st2", text: "Khách sạn", translation: "Luxury hotel" },
+            { id: "st3", text: "Máy bay", translation: "Commercial airplane" },
+            { id: "st4", text: "Bản đồ", translation: "Tourist map" },
+            { id: "st5", text: "Máy ảnh", translation: "Vintage camera" }
+          ]
+        }
+      ];
+      writeLessonsDb(seedLessons);
+    }
+  } catch (e) {
+    console.error("Error auto-seeding Database on starup:", e);
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

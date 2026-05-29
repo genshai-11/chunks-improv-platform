@@ -15,6 +15,8 @@ export interface CueItem {
   category?: string;      // metadata category (e.g., 'pose', 'sound', 'emotion')
   poseJson?: string;      // For physical poses: stick figure coordinates
   soundText?: string;     // For onomatopoeia sounds: e.g. "quack quack"
+  audioVi?: string;       // Base64 Vietnamese synthesized vocal file
+  audioEn?: string;       // Base64 English synthesized vocal file
 }
 
 export type RoundStatus = 'idle' | 'running' | 'paused' | 'stopped';

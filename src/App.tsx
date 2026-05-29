@@ -159,34 +159,54 @@ export default function App() {
     const cache: Record<string, string> = {};
     let loadedCount = 0;
 
-    await Promise.all(
-      cuesToPreload.map(async (cue) => {
-        try {
-          const res = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: cue.text,
-              language: lang,
-              ttsMode: selectedTts,
-              nineRouterConfig: nineRouterConfig
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.audio) {
-              cache[cue.id] = data.audio;
-              cache[cue.text] = data.audio;
+    // First, check pre-saved database audios (Zero network latency!)
+    const cuesNeedFetch: CueItem[] = [];
+    cuesToPreload.forEach(cue => {
+      const storedAudio = lang === 'vi' ? cue.audioVi : cue.audioEn;
+      if (storedAudio) {
+        console.log(`Database saved audio cache hit for: "${cue.text}" (${lang.toUpperCase()})`);
+        cache[cue.id] = storedAudio;
+        cache[cue.text] = storedAudio;
+        loadedCount++;
+      } else {
+        cuesNeedFetch.push(cue);
+      }
+    });
+
+    if (loadedCount > 0) {
+      setLoadingStep(`Loaded ${loadedCount} preset voices from persistent database...`);
+    }
+
+    if (cuesNeedFetch.length > 0) {
+      await Promise.all(
+        cuesNeedFetch.map(async (cue) => {
+          try {
+            const res = await fetch('/api/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: cue.text,
+                language: lang,
+                ttsMode: selectedTts,
+                nineRouterConfig: nineRouterConfig
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.audio) {
+                cache[cue.id] = data.audio;
+                cache[cue.text] = data.audio;
+              }
             }
+          } catch (err) {
+            console.warn("Failed pre_synthesizing clip for cue Text:", cue.text, err);
+          } finally {
+            loadedCount++;
+            setLoadingStep(`Preloaded audio voice sequence: "${cue.text}" (${loadedCount}/${cuesToPreload.length})`);
           }
-        } catch (err) {
-          console.warn("Failed pre_synthesizing clip for cue Text:", cue.text, err);
-        } finally {
-          loadedCount++;
-          setLoadingStep(`Preloaded audio voice sequence: "${cue.text}" (${loadedCount}/${cuesToPreload.length})`);
-        }
-      })
-    );
+        })
+      );
+    }
 
     setAudioCache(cache);
   };
