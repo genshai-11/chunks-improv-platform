@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import SetupPresenter from './components/SetupPresenter';
 import StagePresenter from './components/StagePresenter';
 import { SessionConfig, CueItem, NineRouterConfig } from './types';
-import { Sparkles, RefreshCw, AlertTriangle, Play, HelpCircle, Sun, Moon } from 'lucide-react';
+import { Sparkles, RefreshCw, AlertTriangle, Play, HelpCircle, Sun, Moon, X, Key, Wifi, WifiOff, Activity } from 'lucide-react';
 
 export default function App() {
   const [activeConfig, setActiveConfig] = useState<SessionConfig | null>(null);
@@ -12,6 +12,90 @@ export default function App() {
   const [loadingStep, setLoadingStep] = useState<string>("Contacting server...");
   const [error, setError] = useState<string | null>(null);
   const [audioCache, setAudioCache] = useState<Record<string, string>>({});
+
+  // Global API Drawer states
+  const [isApiConsoleOpen, setIsApiConsoleOpen] = useState<boolean>(false);
+  const [serverStatus, setServerStatus] = useState<{
+    ok: boolean;
+    geminiKeyConfigured: boolean;
+    lessonCount: number;
+    nodeVersion: string;
+    env: string;
+  } | null>(null);
+  const [isServerStatusLoading, setIsServerStatusLoading] = useState<boolean>(false);
+  const [routerTesting, setRouterTesting] = useState<boolean>(false);
+  const [routerTestFeedback, setRouterTestFeedback] = useState<string>("");
+  const [routerTestedModels, setRouterTestedModels] = useState<string[]>([]);
+
+  // Telemetry fetcher
+  const fetchServerStatus = async () => {
+    setIsServerStatusLoading(true);
+    try {
+      const res = await fetch('/api/status');
+      if (res.ok) {
+        const data = await res.json();
+        setServerStatus(data);
+      } else {
+        setServerStatus({
+          ok: false,
+          geminiKeyConfigured: false,
+          lessonCount: 0,
+          nodeVersion: "unknown",
+          env: "production"
+        });
+      }
+    } catch (e) {
+      setServerStatus({
+        ok: false,
+        geminiKeyConfigured: false,
+        lessonCount: 0,
+        nodeVersion: "offline",
+        env: "unknown"
+      });
+    } finally {
+      setIsServerStatusLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServerStatus();
+  }, []);
+
+  // Router test connection helper accessible on all pages
+  const testRouterConnection = async () => {
+    setRouterTesting(true);
+    setRouterTestFeedback("⏳ Testing credentials connection...");
+    setRouterTestedModels([]);
+    try {
+      const res = await fetch('/api/9router/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: nineRouterConfig.url,
+          apiKey: nineRouterConfig.apiKey
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRouterTestFeedback(`✅ Connected beautifully to 9Router! Sync verified.`);
+        if (data.models && data.models.length > 0) {
+          setRouterTestedModels(data.models);
+        }
+      } else {
+        const errTxt = await res.text().catch(() => "");
+        let errMsg = "Check endpoint configuration parameters.";
+        try {
+          const parsed = JSON.parse(errTxt);
+          if (parsed.error) errMsg = parsed.error;
+        } catch(e) {}
+        setRouterTestFeedback(`❌ Hook configuration failed: ${errMsg}`);
+      }
+    } catch (err: any) {
+      setRouterTestFeedback(`❌ Connection Error: ${err.message || "Endpoint server is unreachable."}`);
+    } finally {
+      setRouterTesting(false);
+    }
+  };
 
   // Dynamic Theme (Light vs. Black)
   const [theme, setTheme] = useState<'black' | 'light'>(() => {
@@ -230,12 +314,37 @@ export default function App() {
               <span className={`text-[9px] font-bold block leading-none tracking-widest mt-0.5 uppercase ${
                 theme === 'black' ? 'text-slate-500' : 'text-slate-400'
               }`}>
-                Motion • Sound • Emotion
+                Motion • Sound • Từ vựng (Words List)
               </span>
             </div>
           </div>
           
           <div className="flex items-center gap-2.5">
+            {/* Real-time API Connection Pill Badge */}
+            <button
+              onClick={() => {
+                fetchServerStatus();
+                setIsApiConsoleOpen(true);
+              }}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all text-[10px] font-black uppercase tracking-wider cursor-pointer active:scale-95 ${
+                nineRouterConfig.enabled 
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                  : serverStatus?.geminiKeyConfigured
+                    ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
+                    : 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20'
+              }`}
+              title="Click to open Global API & Models Cockpit Drawer"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                nineRouterConfig.enabled 
+                  ? 'bg-emerald-400 animate-pulse'
+                  : serverStatus?.geminiKeyConfigured
+                    ? 'bg-indigo-400 animate-pulse'
+                    : 'bg-amber-400 animate-pulse'
+              }`}></span>
+              <span>{nineRouterConfig.enabled ? "📡 API: 9Router" : serverStatus?.geminiKeyConfigured ? "♊ API: Gemini" : "🔌 API: Backup"}</span>
+            </button>
+
             {/* Real-time Theme Mode Switcher */}
             <button
               onClick={toggleTheme}
@@ -401,6 +510,295 @@ export default function App() {
 
       </main>
 
+      {/* 5. GLOBAL API & MODELS COCKPIT DRAWER */}
+      {isApiConsoleOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop with a blurring glass effect */}
+          <div 
+            className="absolute inset-0 bg-black/75 backdrop-blur-xs transition-opacity" 
+            onClick={() => setIsApiConsoleOpen(false)}
+          />
+          
+          {/* Drawer Panel */}
+          <div className={`relative w-full max-w-md h-full flex flex-col shadow-2xl border-l overflow-hidden transition-transform duration-300 ${
+            theme === 'black' 
+              ? 'bg-[#0f0a0a] border-neutral-900 text-slate-100' 
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            
+            {/* Drawer Header */}
+            <div className={`p-5 border-b flex items-center justify-between ${
+              theme === 'black' ? 'border-neutral-900 bg-neutral-950/40' : 'border-slate-150 bg-slate-50/50'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl animate-pulse">📡</span>
+                <div>
+                  <h3 className={`font-display font-black text-xs uppercase tracking-wider block ${
+                    theme === 'black' ? 'text-white' : 'text-slate-900'
+                  }`}>Global API & Models Console</h3>
+                  <span className={`text-[9px] uppercase tracking-wider block font-bold leading-none mt-1 ${
+                    theme === 'black' ? 'text-slate-500' : 'text-slate-400'
+                  }`}>
+                    Monitor & configure core parameters live
+                  </span>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => setIsApiConsoleOpen(false)}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer active:scale-95 ${
+                  theme === 'black' 
+                    ? 'hover:bg-neutral-900 border-neutral-800 text-slate-400 hover:text-white' 
+                    : 'hover:bg-slate-100 border-slate-250 text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Setup parameters */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              
+              {/* Telemetry check card */}
+              <div className={`p-4 rounded-xl border space-y-3 ${
+                theme === 'black' ? 'bg-neutral-950/40 border-neutral-900' : 'bg-slate-50/50 border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                    theme === 'black' ? 'text-slate-400' : 'text-slate-600'
+                  }`}>System Host Telemetry</span>
+                  <button 
+                    onClick={fetchServerStatus}
+                    disabled={isServerStatusLoading}
+                    className={`p-1 rounded-lg border cursor-pointer disabled:opacity-50 ${
+                      theme === 'black' ? 'border-neutral-800 hover:bg-neutral-900 text-slate-500' : 'border-slate-250 hover:bg-slate-100 text-slate-400'
+                    }`}
+                    title="Refresh telemetry"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isServerStatusLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                  <div className={`p-2.5 rounded-lg border ${
+                    theme === 'black' ? 'bg-neutral-900/40 border-neutral-800/60' : 'bg-white border-slate-200/60'
+                  }`}>
+                    <span className="block text-[8px] uppercase font-black text-slate-500 mb-0.5">Gemini credentials</span>
+                    <span className={`font-bold flex items-center gap-1 ${serverStatus?.geminiKeyConfigured ? 'text-indigo-400' : 'text-amber-500'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${serverStatus?.geminiKeyConfigured ? 'bg-indigo-400 animate-pulse' : 'bg-amber-500 animate-pulse'}`}></span>
+                      {serverStatus ? (serverStatus.geminiKeyConfigured ? "CONFIGURED" : "MISSING KEY") : "LOADING..."}
+                    </span>
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg border ${
+                    theme === 'black' ? 'bg-neutral-900/40 border-neutral-800/60' : 'bg-white border-slate-200/60'
+                  }`}>
+                    <span className="block text-[8px] uppercase font-black text-slate-500 mb-0.5">Socket Status</span>
+                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      CONNECTED
+                    </span>
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg border ${
+                    theme === 'black' ? 'bg-neutral-900/40 border-neutral-800/60' : 'bg-white border-slate-200/60'
+                  }`}>
+                    <span className="block text-[8px] uppercase font-black text-slate-500 mb-0.5">Custom Lessons</span>
+                    <span className={`font-bold ${theme === 'black' ? 'text-slate-350' : 'text-slate-700'}`}>
+                      {serverStatus ? `${serverStatus.lessonCount} Saved` : "LOADING..."}
+                    </span>
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg border ${
+                    theme === 'black' ? 'bg-neutral-900/40 border-neutral-800/60' : 'bg-white border-slate-200/60'
+                  }`}>
+                    <span className="block text-[8px] uppercase font-black text-slate-500 mb-0.5">Node Runtime</span>
+                    <span className={`font-bold ${theme === 'black' ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {serverStatus?.nodeVersion || "unknown"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Master Enabled / Disabled Toggle */}
+              <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
+                theme === 'black' ? 'bg-neutral-950/40 border-neutral-900' : 'bg-slate-50/50 border-slate-200'
+              }`}>
+                <div>
+                  <h4 className={`text-[10px] font-black uppercase tracking-wider block ${
+                    theme === 'black' ? 'text-slate-200' : 'text-slate-800'
+                  }`}>Use 9Router Proxy Proxy</h4>
+                  <p className={`text-[9px] leading-relaxed mt-0.5 ${theme === 'black' ? 'text-slate-500' : 'text-slate-500'}`}>
+                    Proxy requests through local or custom bearer credentials if the standard limits are exhausted.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={nineRouterConfig.enabled}
+                    onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, enabled: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className={`w-10 h-5.5 rounded-full relative transition-all border ${
+                    nineRouterConfig.enabled
+                      ? 'bg-emerald-500/20 border-emerald-500 after:translate-x-4.5 after:bg-emerald-500'
+                      : 'bg-neutral-800 border-neutral-700 after:bg-slate-500'
+                  } after:content-[''] after:absolute after:top-0.5 after:left-[3px] after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
+                </label>
+              </div>
+
+              {/* Configuration parameters */}
+              <div className="space-y-4">
+                <span className={`block text-[10px] font-black uppercase tracking-wider pb-1.5 border-b ${
+                  theme === 'black' ? 'border-neutral-900 text-slate-400' : 'border-slate-150 text-slate-600'
+                }`}>Credentials Configuration</span>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase mb-1 text-slate-500">9Router Server Endpoint</label>
+                    <input
+                      type="text"
+                      value={nineRouterConfig.url}
+                      disabled={!nineRouterConfig.enabled}
+                      onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, url: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-red-500 ${
+                        theme === 'black' 
+                          ? 'bg-neutral-950 border-neutral-900 text-slate-200' 
+                          : 'bg-slate-50 border-slate-200 text-slate-700'
+                      } ${!nineRouterConfig.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black uppercase mb-1 text-slate-500">Bearer Token API Key (Optional)</label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={nineRouterConfig.apiKey || ''}
+                        disabled={!nineRouterConfig.enabled}
+                        placeholder="Enter credentials auth code sequence..."
+                        onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, apiKey: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-red-500 pr-10 ${
+                          theme === 'black' 
+                            ? 'bg-neutral-950 border-neutral-900 text-slate-200' 
+                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                        } ${!nineRouterConfig.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      />
+                      <Key className="w-3.5 h-3.5 text-slate-600 absolute right-3.5 top-3" />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={testRouterConnection}
+                  disabled={!nineRouterConfig.enabled || routerTesting}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${routerTesting ? 'animate-spin' : ''}`} />
+                  <span>{routerTesting ? "Pinging Connection..." : "Ping Connection Gateway"}</span>
+                </button>
+
+                {routerTestFeedback && (
+                  <div className={`p-3 rounded-xl text-[10px] font-mono leading-normal border max-h-[120px] overflow-y-auto ${
+                    routerTestFeedback.includes('✅') 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                      : 'bg-rose-500/10 border-rose-500/20 text-rose-450'
+                  }`}>
+                    {routerTestFeedback}
+                  </div>
+                )}
+
+                {routerTestedModels.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="block text-[8px] font-black uppercase text-slate-500">Available remote Models check:</span>
+                    <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto p-2 border border-neutral-900 rounded-xl">
+                      {routerTestedModels.map(m => (
+                        <span key={m} className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                          theme === 'black' ? 'bg-neutral-900 border border-neutral-800 text-slate-400' : 'bg-slate-100 border-slate-250 text-slate-650'
+                        }`}>
+                          {m}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Models dropdown specifications */}
+              <div className="space-y-4">
+                <span className={`block text-[10px] font-black uppercase tracking-wider pb-1.5 border-b ${
+                  theme === 'black' ? 'border-neutral-900 text-slate-400' : 'border-slate-150 text-slate-600'
+                }`}>Custom Model Target binds</span>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase mb-1 text-slate-500">LLM Generation Model</label>
+                    <input
+                      type="text"
+                      disabled={!nineRouterConfig.enabled}
+                      value={nineRouterConfig.llmModel}
+                      onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, llmModel: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-rose-500 ${
+                        theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-350' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black uppercase mb-1 text-slate-500">Speech-To-Text Model (STT)</label>
+                    <input
+                      type="text"
+                      disabled={!nineRouterConfig.enabled}
+                      value={nineRouterConfig.sttModel}
+                      onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, sttModel: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-rose-500 ${
+                        theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-350' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black uppercase mb-1 text-slate-500 font-sans">Vietnamese Voice Model (TTS)</label>
+                    <input
+                      type="text"
+                      disabled={!nineRouterConfig.enabled}
+                      value={nineRouterConfig.ttsModelVi || ''}
+                      onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, ttsModelVi: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-rose-500 ${
+                        theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-350' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black uppercase mb-1 text-slate-500 font-sans">English Voice Model (TTS)</label>
+                    <input
+                      type="text"
+                      disabled={!nineRouterConfig.enabled}
+                      value={nineRouterConfig.ttsModelEn || ''}
+                      onChange={(e) => handleUpdateNineRouterConfig({ ...nineRouterConfig, ttsModelEn: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-rose-500 ${
+                        theme === 'black' ? 'bg-neutral-950 border-neutral-900 text-slate-350' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Status label */}
+            <div className={`p-4 border-t text-center text-[9px] font-bold uppercase tracking-wider font-mono ${
+              theme === 'black' ? 'border-neutral-900 bg-neutral-950/40 text-slate-500' : 'border-slate-100 bg-slate-50 text-slate-400'
+            }`}>
+              ⚡ Active Configurations applied instantly
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* Elegant minimalist theatrical footer */}
       <footer className={`py-4 border-t text-center text-[10px] font-bold uppercase tracking-wider ${
         theme === 'black' 
@@ -409,7 +807,7 @@ export default function App() {
       }`}>
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>Chunks Improv Stage • Realized with 🧠 Chunks Theory speaking loops</span>
-          <span className={theme === 'black' ? 'text-slate-700' : 'text-slate-400'}>Motion • Sound • Emotion v2</span>
+          <span className={theme === 'black' ? 'text-slate-700' : 'text-slate-400'}>Motion • Sound • Từ vựng (Words List)</span>
         </div>
       </footer>
 

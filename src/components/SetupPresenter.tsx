@@ -26,7 +26,12 @@ import {
   Sliders,
   Database,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Terminal,
+  Code,
+  Globe,
+  Send,
+  Activity
 } from 'lucide-react';
 
 interface SetupPresenterProps {
@@ -82,9 +87,120 @@ function PosePreviewBox({ poseJson }: { poseJson: string }) {
   }
 }
 
+const API_ENDPOINTS = [
+  {
+    name: "System Status & Telemetry",
+    method: "GET",
+    path: "/api/status",
+    description: "Returns physical host info, custom lesson database counts, Node runner version, and active Gemini credential keys.",
+    defaultBody: "",
+    hasBody: false
+  },
+  {
+    name: "Retrieve Physical Lessons",
+    method: "GET",
+    path: "/api/lessons",
+    description: "Queries and fetches all stored theatrical lesson blueprints & gestural blueprints saved in the database storage.",
+    defaultBody: "",
+    hasBody: false
+  },
+  {
+    name: "Save Custom Lesson Record",
+    method: "POST",
+    path: "/api/lessons",
+    description: "Saves a newly constructed custom training lesson & physical gestures to the local JSON database.",
+    defaultBody: JSON.stringify({
+      topic: "Kiểm thử API Tự động",
+      type: "emotion",
+      cues: [
+        {
+          id: "test-cue-1",
+          text: "Hạnh phúc ngập tràn",
+          translation: "Radiant happiness with hands on chest",
+          category: "emotion"
+        },
+        {
+          id: "test-cue-2",
+          text: "Sợ hãi rụt rè",
+          translation: "Timid fright with hands shielding eyes",
+          category: "emotion"
+        }
+      ]
+    }, null, 2),
+    hasBody: true
+  },
+  {
+    name: "Generate Prompts with AI (LLM)",
+    method: "POST",
+    path: "/api/cue/generate",
+    description: "Invokes standard Gemini AI schemas or custom 9Router LLM with criteria to return 5 distinct structured gestural/theatrical prompts.",
+    defaultBody: JSON.stringify({
+      mode: "emotion",
+      topic: "Đời sống nơi văn phòng công sở",
+      wordType: "Danh từ vui vẻ",
+      level: "Medium",
+      language: "vi",
+      count: 2
+    }, null, 2),
+    hasBody: true
+  },
+  {
+    name: "Speech-To-Text (STT) Audio Analyzer",
+    method: "POST",
+    path: "/api/stt/analyze",
+    description: "Performs phoneme alignment comparison on spoken user lines against designated response targets of chosen prompts.",
+    defaultBody: JSON.stringify({
+      originalText: "I am flying high like a strong eagle inside the storm.",
+      spokenText: "I am flying high like a strong eagle in the storm."
+    }, null, 2),
+    hasBody: true
+  },
+  {
+    name: "Synthesize Vocal Waves (TTS)",
+    method: "POST",
+    path: "/api/tts",
+    description: "Translates and synthesizes Vietnamese or English theatrical lines to fluid human speaking voice audio data streams.",
+    defaultBody: JSON.stringify({
+      text: "Hãy tự tin giải phóng toàn bộ năng lượng hình thể của bạn trên sân khấu kịch tương tác!",
+      language: "vi",
+      nineRouterConfig: {
+        enabled: false,
+        url: "http://localhost:3000",
+        llmModel: "gemini-2.5-flash",
+        sttModel: "whisper-1",
+        ttsModelVi: "edge-tts/vi-VN-HoaiMyNeural",
+        ttsModelEn: "edge-tts/en-US-AriaNeural"
+      }
+    }, null, 2),
+    hasBody: true
+  }
+];
+
 export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNineRouter, theme }: SetupPresenterProps) {
-  // Navigation Dashboard states: 'launcher' | 'database' | 'settings'
-  const [cockpitTab, setCockpitTab] = useState<'launcher' | 'database' | 'settings'>('launcher');
+  // Navigation Dashboard states: 'launcher' | 'database' | 'settings' | 'api'
+  const [cockpitTab, setCockpitTab] = useState<'launcher' | 'database' | 'settings' | 'api'>('launcher');
+
+  // Interactive API Sandbox Console states
+  const [selectedApiIndex, setSelectedApiIndex] = useState<number>(0);
+  const [apiRequestBody, setApiRequestBody] = useState<string>('');
+  const [apiRequestHeaders, setApiRequestHeaders] = useState<string>('{\n  "Content-Type": "application/json"\n}');
+  const [apiResponseStatus, setApiResponseStatus] = useState<number | null>(null);
+  const [apiResponseHeaders, setApiResponseHeaders] = useState<string>('');
+  const [apiResponseBody, setApiResponseBody] = useState<string>('');
+  const [apiLoading, setApiLoading] = useState<boolean>(false);
+  const [apiExecutionTime, setApiExecutionTime] = useState<number | null>(null);
+
+  // Sync default payload when selected API changes
+  useEffect(() => {
+    const endpoint = API_ENDPOINTS[selectedApiIndex];
+    if (endpoint) {
+      setApiRequestBody(endpoint.defaultBody || '');
+      setApiResponseStatus(null);
+      setApiResponseHeaders('');
+      setApiResponseBody('');
+      setApiExecutionTime(null);
+    }
+  }, [selectedApiIndex]);
 
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
   const [topic, setTopic] = useState<string>('Thế giới động vật hoang dã');
@@ -131,14 +247,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
     },
     { 
       id: 'd3', 
-      text: 'Bút chì', 
-      translation: 'Pencil', 
+      text: 'Con người', 
+      translation: 'Human', 
       category: 'emotion' 
     },
     { 
       id: 'd4', 
-      text: 'Trốn tìm', 
-      translation: 'Hide and seek', 
+      text: 'Sư tử', 
+      translation: 'Lion', 
+      category: 'emotion' 
+    },
+    { 
+      id: 'd5', 
+      text: 'Cây', 
+      translation: 'Tree', 
       category: 'emotion' 
     }
   ]);
@@ -190,8 +312,9 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
       ]);
     } else {
       setCustomCues([
-        { id: 'e1', text: 'Bút chì', translation: 'Pencil', category: 'emotion' },
-        { id: 'e2', text: 'Trốn tìm', translation: 'Hide and seek', category: 'emotion' }
+        { id: 'e1', text: 'Con người', translation: 'Human', category: 'emotion' },
+        { id: 'e2', text: 'Sư tử', translation: 'Lion', category: 'emotion' },
+        { id: 'e3', text: 'Cây', translation: 'Tree', category: 'emotion' }
       ]);
     }
     setDbStatusMsg(`🔄 Reset loaded default preset draft cues for ${activeTab}!`);
@@ -281,13 +404,13 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
         if (res.ok) savedFoldersCount++;
       }
 
-      // Classify & Save Emotion section
+      // Classify & Save Words List section
       if (emotionCues.length > 0) {
         const res = await fetch('/api/lessons', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            topic: `${topic.trim()} (Emotion Library)`,
+            topic: `${topic.trim()} (Words Library)`,
             type: 'emotion',
             level,
             language,
@@ -444,6 +567,54 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
     }
   };
 
+  const handleExecuteApiTest = async () => {
+    setApiLoading(true);
+    setApiResponseStatus(null);
+    setApiResponseHeaders('');
+    setApiResponseBody('');
+    setApiExecutionTime(null);
+    const startTime = performance.now();
+    
+    try {
+      const endpoint = API_ENDPOINTS[selectedApiIndex];
+      let finalPath = endpoint.path;
+      const fetchOptions: RequestInit = {
+        method: endpoint.method,
+        headers: JSON.parse(apiRequestHeaders)
+      };
+      
+      if (endpoint.hasBody && apiRequestBody) {
+        fetchOptions.body = apiRequestBody;
+      }
+      
+      const response = await fetch(finalPath, fetchOptions);
+      const endTime = performance.now();
+      setApiExecutionTime(Math.round(endTime - startTime));
+      setApiResponseStatus(response.status);
+      
+      const responseText = await response.text();
+      try {
+        const parsed = JSON.parse(responseText);
+        setApiResponseBody(JSON.stringify(parsed, null, 2));
+      } catch (e) {
+        setApiResponseBody(responseText);
+      }
+      
+      const headersMap: Record<string, string> = {};
+      response.headers.forEach((val, key) => {
+        headersMap[key] = val;
+      });
+      setApiResponseHeaders(JSON.stringify(headersMap, null, 2));
+    } catch (err: any) {
+      const endTime = performance.now();
+      setApiExecutionTime(Math.round(endTime - startTime));
+      setApiResponseStatus(500);
+      setApiResponseBody(`Execution Error: ${err.message || 'Server connection failed.'}`);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
   const handleLaunchDirect = (e: React.FormEvent) => {
     e.preventDefault();
     onStart({
@@ -540,6 +711,19 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           <Settings className="w-4 h-4 shrink-0" />
           <span>9Router Settings</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setCockpitTab('api')}
+          className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all cursor-pointer ${
+            cockpitTab === 'api'
+              ? (theme === 'black' ? 'bg-[#180909] text-red-400 shadow' : 'bg-white text-indigo-700 shadow')
+              : (theme === 'black' ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-800')
+          }`}
+        >
+          <Terminal className="w-4 h-4 shrink-0" />
+          <span>API Console</span>
+        </button>
       </div>
 
       {/* DB global feedback bar */}
@@ -597,7 +781,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 }`}
               >
                 <Brain className="w-3.5 h-3.5 text-blue-500" />
-                <span>Emotion Tab</span>
+                <span>Từ vựng (Words list)</span>
               </button>
             </div>
 
@@ -754,7 +938,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                               currentCategory === 'sound' ? 'bg-red-500/10 border border-red-500/30 text-rose-500' :
                               'bg-blue-500/10 border border-blue-500/30 text-blue-500'
                             }`}>
-                              #{idx + 1} • {currentCategory.toUpperCase()}
+                              #{idx + 1} • {currentCategory === 'emotion' ? 'WORDS' : currentCategory.toUpperCase()}
                             </span>
                             
                             <span className={`text-xs font-black truncate leading-none ${headerText}`}>
@@ -828,7 +1012,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                                   }}
                                   className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-red-500 cursor-pointer ${innerBg}`}
                                 >
-                                  <option value="emotion">Emotion Topic Folder 📁</option>
+                                  <option value="emotion">Words List Folder (Từ vựng) 📁</option>
                                   <option value="motion">Motion Pose Folder 🏃‍♂️</option>
                                   <option value="sound">Sound Echoes Folder 🔊</option>
                                 </select>
@@ -1152,7 +1336,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                                       cueCategory === 'sound' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
                                       'bg-blue-500/10 text-blue-500 border border-blue-500/20'
                                     }`}>
-                                      {cueCategory}
+                                      {cueCategory === 'emotion' ? 'WORDS' : cueCategory}
                                     </span>
                                   </div>
                                 );
@@ -1390,6 +1574,240 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* VIEW 4: DEDICATED SWISS-TYPE API INSTRUMENTATION PANEL */}
+        {cockpitTab === 'api' && (
+          <div className={`p-6 rounded-2xl border shadow-xl flex flex-col gap-6 animate-scale-up ${panelsBg}`}>
+            
+            {/* Tab header */}
+            <div className="flex items-center justify-between gap-4 border-b pb-4 border-style">
+              <div>
+                <h2 className={`text-lg font-display font-extrabold flex items-center gap-2 ${headerText}`}>
+                  <Terminal className="w-5 h-5 text-emerald-400 animate-pulse" />
+                  Interactive API Console & Sandbox Playground
+                </h2>
+                <p className={`text-[10px] ${smallText} mt-0.5`}>
+                  Inspect available custom Node.js Express server routes, run real-time request packets, and view debug trace headers.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>SYSTEM API ONLINE</span>
+              </div>
+            </div>
+
+            {/* Split layout: Endpoint Selection List vs Dynamic interactive sandbox tester */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* Left Column: API Directory (span 5) */}
+              <div className="lg:col-span-12 xl:col-span-5 space-y-3">
+                <span className={`block text-[10px] font-black uppercase tracking-wider pb-1.5 border-b ${borderStyle} ${labelText}`}>
+                  Routes Catalog
+                </span>
+                
+                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                  {API_ENDPOINTS.map((endpoint, idx) => {
+                    const isSelected = selectedApiIndex === idx;
+                    const isGet = endpoint.method === 'GET';
+                    const isPost = endpoint.method === 'POST';
+                    const isDelete = endpoint.method === 'DELETE';
+                    const isPut = endpoint.method === 'PUT';
+                    
+                    let bgBadge = '';
+                    let borderBadge = '';
+                    let textBadge = '';
+                    
+                    if (isGet) {
+                      bgBadge = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+                    } else if (isPost) {
+                      bgBadge = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+                    } else if (isDelete) {
+                      bgBadge = 'bg-rose-500/15 text-rose-450 border-rose-500/30';
+                    } else {
+                      bgBadge = 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedApiIndex(idx)}
+                        className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 relative group ${
+                          isSelected 
+                            ? theme === 'black'
+                              ? 'bg-neutral-900 border-[#2b0c0c] text-slate-100 shadow-md ring-1 ring-[#3b1212]'
+                              : 'bg-indigo-50/60 border-indigo-250 text-indigo-900 ring-1 ring-indigo-150'
+                            : theme === 'black'
+                              ? 'bg-neutral-950/40 border-neutral-900 text-slate-400 hover:bg-neutral-900/40 hover:text-white'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-150 hover:text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 w-full">
+                          <span className="text-xs font-bold leading-normal">{endpoint.name}</span>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black border font-mono tracking-wider ${bgBadge}`}>
+                            {endpoint.method}
+                          </span>
+                        </div>
+                        
+                        <span className={`text-[10px] font-mono leading-none tracking-tight block ${isSelected ? 'text-amber-500 font-bold' : smallText}`}>
+                          {endpoint.path}
+                        </span>
+
+                        <p className={`text-[9.5px] leading-relaxed mt-0.5 line-clamp-2 ${isSelected ? (theme === 'black' ? 'text-slate-300' : 'text-slate-655') : smallText}`}>
+                          {endpoint.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Column: API Playground (span 7) */}
+              <div className="lg:col-span-12 xl:col-span-7 space-y-4">
+                <span className={`block text-[10px] font-black uppercase tracking-wider pb-1.5 border-b ${borderStyle} ${labelText}`}>
+                  Interactive Sandbox Playground
+                </span>
+                
+                {/* Active Endpoint header banner */}
+                <div className={`p-4 rounded-xl border flex flex-col gap-1 ${
+                  theme === 'black' ? 'bg-[#120a0a]/50 border-red-950/20' : 'bg-indigo-50/30 border-indigo-100/50'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded text-[9px] font-black border font-mono tracking-widest uppercase ${
+                      API_ENDPOINTS[selectedApiIndex].method === 'GET' 
+                        ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-400' 
+                        : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    }`}>
+                      {API_ENDPOINTS[selectedApiIndex].method}
+                    </span>
+                    <span className={`text-[11px] font-mono font-bold ${headerText}`}>
+                      {API_ENDPOINTS[selectedApiIndex].path}
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] mt-1.5 italic text-slate-500 leading-normal">
+                    {API_ENDPOINTS[selectedApiIndex].description}
+                  </p>
+                </div>
+
+                {/* HTTP Request Parameters (Headers + Body) */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Editable Headers */}
+                    <div>
+                      <label className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                        Headers (JSON format)
+                      </label>
+                      <textarea
+                        value={apiRequestHeaders}
+                        onChange={(e) => setApiRequestHeaders(e.target.value)}
+                        className={`w-full h-24 px-3 py-2 border rounded-xl font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-red-500 ${innerBg}`}
+                      />
+                    </div>
+
+                    {/* Active Route Details */}
+                    <div className="space-y-2 text-[10px] leading-relaxed">
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        Execution Metrics
+                      </span>
+                      <div className={`p-3 rounded-xl border space-y-2 h-24 flex flex-col justify-center ${theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500">Status Code:</span>
+                          <span className={`font-mono font-bold ${
+                            apiResponseStatus === null 
+                              ? 'text-slate-400' 
+                              : apiResponseStatus >= 200 && apiResponseStatus < 300
+                                ? 'text-emerald-400 animate-pulse'
+                                : 'text-rose-400'
+                          }`}>
+                            {apiResponseStatus === null ? "No send execution" : apiResponseStatus === 0 ? "Network Error" : apiResponseStatus}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="text-slate-500">Latency:</span>
+                          <span className="font-mono font-bold text-amber-500">
+                            {apiExecutionTime === null ? "--" : `${apiExecutionTime} ms`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="text-slate-500">Gateway host:</span>
+                          <span className="font-mono text-slate-400">Local Container</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Request Body Payload */}
+                  {API_ENDPOINTS[selectedApiIndex].hasBody && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-[9px] font-black uppercase tracking-wider text-slate-500">
+                          JSON Request Body Payload
+                        </label>
+                        <span className="text-[8px] font-bold text-amber-500 font-mono tracking-wider">EDITABLE JSON</span>
+                      </div>
+                      <textarea
+                        value={apiRequestBody}
+                        onChange={(e) => setApiRequestBody(e.target.value)}
+                        className={`w-full h-36 px-3 py-2 border rounded-xl font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-red-500 ${innerBg}`}
+                      />
+                    </div>
+                  )}
+
+                  {/* Submit Runner Button */}
+                  <button
+                    type="button"
+                    onClick={handleExecuteApiTest}
+                    disabled={apiLoading}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-indigo-500 hover:from-emerald-600 hover:to-indigo-600 text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 shadow-md"
+                  >
+                    {apiLoading ? <RefreshCw className="w-4 h-4 animate-spin text-slate-950" /> : <Send className="w-3.5 h-3.5 text-slate-950" />}
+                    <span className="text-slate-950">{apiLoading ? "TRANSMITTING DATA..." : "RUN API HANDLER TEST"}</span>
+                  </button>
+                </div>
+
+                {/* HTTP Response Visualizer Container */}
+                <div className="space-y-2">
+                  <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">
+                    Response Package Output
+                  </span>
+                  
+                  {apiResponseBody ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-[9px] w-full overflow-hidden">
+                      {/* JSON Response Body tree */}
+                      <div className="space-y-1 w-full overflow-hidden">
+                        <span className="block text-[8px] text-slate-500 font-bold uppercase tracking-wider font-sans">Body output</span>
+                        <pre className={`p-3 rounded-xl border h-60 overflow-auto text-slate-300 leading-normal font-mono w-full ${
+                          theme === 'black' ? 'bg-[#060404] border-neutral-900/80 text-emerald-400' : 'bg-slate-950 border-slate-950/80 text-emerald-400'
+                        }`}>
+                          <code>{apiResponseBody}</code>
+                        </pre>
+                      </div>
+
+                      {/* Header map attributes */}
+                      <div className="space-y-1 w-full overflow-hidden">
+                        <span className="block text-[8px] text-slate-500 font-bold uppercase tracking-wider font-sans">Header trace metadata</span>
+                        <pre className={`p-3 rounded-xl border h-60 overflow-auto text-slate-400 leading-normal font-mono w-full ${
+                          theme === 'black' ? 'bg-[#040406] border-neutral-900/40 text-slate-400' : 'bg-[#151525] border-slate-900 text-slate-500'
+                        }`}>
+                          <code>{apiResponseHeaders || '// Headers not traced'}</code>
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`p-10 text-center rounded-xl border border-dashed text-[10px] uppercase font-bold tracking-wider ${
+                      theme === 'black' ? 'border-neutral-900 text-slate-600' : 'border-slate-250 text-slate-400'
+                    }`}>
+                      No response payload buffered. Tap Submit API Request above.
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
           </div>
         )}
 

@@ -446,6 +446,24 @@ app.post("/api/9router/test", async (req, res) => {
   }
 });
 
+// API: System status telemetry check
+app.get("/api/status", (req, res) => {
+  const hasGeminiKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY";
+  let lessonCount = 0;
+  try {
+    const lessons = readLessonsDb();
+    lessonCount = Array.isArray(lessons) ? lessons.length : 0;
+  } catch (e) {}
+
+  res.json({
+    ok: true,
+    geminiKeyConfigured: hasGeminiKey,
+    lessonCount,
+    nodeVersion: process.version,
+    env: process.env.NODE_ENV || "development"
+  });
+});
+
 // Database Lessons file path
 const LESSONS_FILE = path.join(process.cwd(), "lessons_db.json");
 
