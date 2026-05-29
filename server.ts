@@ -225,7 +225,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
   while (attempts > 0) {
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -601,7 +601,7 @@ async function generateAudioBase64(text: string, language: string, nineRouterCon
     try {
       const isVi = language === 'vi';
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
+        model: "gemini-2.5-flash",
         contents: [{ parts: [{ text: text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
@@ -915,7 +915,7 @@ app.post("/api/tts", async (req, res) => {
   try {
     const isVi = (language || 'vi') === 'vi';
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-tts-preview",
+      model: "gemini-2.5-flash",
       contents: [{ parts: [{ text: text }] }],
       config: {
         responseModalities: [Modality.AUDIO],

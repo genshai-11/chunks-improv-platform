@@ -31,7 +31,8 @@ import {
   Code,
   Globe,
   Send,
-  Activity
+  Activity,
+  X
 } from 'lucide-react';
 
 interface SetupPresenterProps {
@@ -241,6 +242,15 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const [routerTesting, setRouterTesting] = useState<boolean>(false);
   const [routerTestFeedback, setRouterTestFeedback] = useState<string>('');
   const [routerTestedModels, setRouterTestedModels] = useState<string[]>([]);
+  const [showSampleGenerator, setShowSampleGenerator] = useState<boolean>(false);
+  
+  // Sample Generator Modal States
+  const [sampleTopic, setSampleTopic] = useState<string>('Cuộc sống hằng ngày');
+  const [sampleLevel, setSampleLevel] = useState<string>('Dễ - Mầm non & Tiểu học');
+  const [sampleCount, setSampleCount] = useState<number>(5);
+  const [sampleType, setSampleType] = useState<'emotion' | 'motion' | 'sound'>('emotion');
+  const [sampleLang, setSampleLang] = useState<'vi' | 'en'>('vi');
+  const [sampleWordType, setSampleWordType] = useState<string>('Từ đơn');
 
   // Draft Cues - Initialized with exactly 4 elegant, multi-category cards (Draft Lesson Cards (4))
   const [customCues, setCustomCues] = useState<CueItem[]>([
@@ -516,25 +526,64 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
     }
   };
 
-  const handleSeedLessons = async () => {
+  const generateSampleLessonViaLLM = async () => {
     setSeedingLoading(true);
-    setDbStatusMsg("⚡ Seeding beautiful preloaded lessons with HD Audio...");
+    setDbStatusMsg("⚡ Đang dùng AI tạo bài học mẫu, vui lòng chờ...");
     try {
-      const res = await fetch('/api/lessons/seed', {
+      // 1. Generate cues using LLM Route
+      const res = await fetch('/api/cue/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nineRouterConfig })
+        body: JSON.stringify({
+          topic: sampleTopic,
+          wordType: sampleWordType,
+          level: sampleLevel,
+          language: sampleLang,
+          count: sampleCount,
+          nineRouterConfig
+        })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setDbStatusMsg(`🚀 Seeded ${data.seededCount} templates! Total database: ${data.total} lessons.`);
-        loadLessons();
+      
+      if (!res.ok) throw new Error("Generative API failed");
+      const data = await res.json();
+      
+      if (data.cues && data.cues.length > 0) {
+        const soundViPresets = ['Gâu Gâu! 🐕', 'Meo Meo! 🐈', 'Quác Quác! 🦆', 'Ò ó o! 🐓', 'Oạp Oạp! 🐸', 'Húuuu! 🐺', 'U uuu! 🦍', 'Chíp Chíp! 🐥'];
+        const soundEnPresets = ['Woof Woof! 🐕', 'Meow Meow! 🐈', 'Quack Quack! 🦆', 'Cock-a-doodle-doo! 🐓', 'Ribbit Ribbit! 🐸', 'Awooooo! 🐺', 'Hoot Hoot! 🦉', 'Tweet Tweet! 🐥'];
+        
+        const adapted = data.cues.map((cue: any, i: number) => ({
+          id: `llm-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
+          text: cue.text,
+          translation: cue.translation,
+          category: sampleType,
+          poseJson: sampleType === 'motion' ? POSE_PRESETS[i % POSE_PRESETS.length].coords : undefined,
+          soundText: sampleType === 'sound' ? (sampleLang === 'vi' ? soundViPresets[i % soundViPresets.length] : soundEnPresets[i % soundEnPresets.length]) : undefined
+        }));
+
+        // 2. Save directly to DB as a lesson
+        const titleSuffix = sampleType === 'emotion' ? '(Từ vựng)' : sampleType === 'motion' ? '(Motion)' : '(Sound)';
+        const saveRes = await fetch('/api/lessons/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: `${sampleTopic} ${titleSuffix}`,
+            type: sampleType,
+            cues: adapted
+          })
+        });
+
+        if (saveRes.ok) {
+          setDbStatusMsg(`✅ Đã tạo thành công bài học mẫu: ${sampleTopic}`);
+          setShowSampleGenerator(false);
+          loadLessons();
+        } else {
+          throw new Error("Lỗi khi lưu bài học");
+        }
       } else {
-        const data = await res.json();
-        throw new Error(data.error || "Seeding error");
+        throw new Error("Dữ liệu tạo ra trống");
       }
     } catch (err: any) {
-      setDbStatusMsg(`❌ Seeding failed: ${err.message}`);
+      setDbStatusMsg(`❌ Lỗi tạo bài mẫu: ${err.message}`);
     } finally {
       setSeedingLoading(false);
       setTimeout(() => setDbStatusMsg(''), 4500);
@@ -1274,6 +1323,10 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   <option value={8} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>8 Thẻ (8 Cues)</option>
                   <option value={10} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>10 Thẻ (10 Cues)</option>
                   <option value={15} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>15 Thẻ (15 Cues)</option>
+                  <option value={20} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>20 Thẻ (20 Cues)</option>
+                  <option value={30} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>30 Thẻ (30 Cues)</option>
+                  <option value={40} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>40 Thẻ (40 Cues)</option>
+                  <option value={50} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>50 Thẻ (50 Cues)</option>
                 </select>
               </div>
 
@@ -1285,7 +1338,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                 <input
                   type="range"
                   min="3"
-                  max="15"
+                  max="7"
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
                   className="w-full accent-red-500 h-1 rounded-lg cursor-pointer bg-slate-700 mt-2.5"
@@ -1417,17 +1470,17 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
 
               <button
                 type="button"
-                onClick={handleSeedLessons}
+                onClick={() => setShowSampleGenerator(true)}
                 disabled={seedingLoading}
                 className={`w-full sm:w-auto px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
                   theme === 'black'
                     ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-550/20 disabled:opacity-50'
                     : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 disabled:opacity-50'
                 }`}
-                title="Tạo sẵn các bộ bài học mẫu phong phú kèm voice audio lưu trong database"
+                title="Tạo sẵn các bộ bài học mẫu phong phú qua AI"
               >
                 <Database className={`w-3.5 h-3.5 ${seedingLoading ? 'animate-bounce' : ''}`} />
-                <span>{seedingLoading ? "ĐANG NẠP MẪU..." : "TẠO BÀI HỌC MẪU ⚡"}</span>
+                <span>{seedingLoading ? "ĐANG TẠO..." : "TẠO BÀI HỌC MẪU ⚡"}</span>
               </button>
             </div>
 
@@ -2083,6 +2136,141 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
         )}
 
       </div>
+
+      {/* SAMPLE LESSON GENERATOR MODAL */}
+      {showSampleGenerator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-lg rounded-2xl shadow-xl border overflow-hidden ${
+            theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-200'
+          }`}>
+            <div className={`px-6 py-4 border-b flex items-center justify-between ${
+              theme === 'black' ? 'border-neutral-900 bg-neutral-900/40' : 'border-slate-100 bg-slate-50'
+            }`}>
+              <h3 className={`text-lg font-bold font-display tracking-tight flex items-center gap-2 ${
+                theme === 'black' ? 'text-slate-200' : 'text-slate-800'
+              }`}>
+                <Brain className="w-5 h-5 text-emerald-500" />
+                Tạo Bài Học Mẫu Bằng AI
+              </h3>
+              <button 
+                onClick={() => setShowSampleGenerator(false)}
+                className={`p-1.5 rounded-full hover:bg-slate-500/10 transition-colors ${
+                  theme === 'black' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              <div className="space-y-1.5">
+                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Chủ đề / Tên bài</label>
+                <input
+                  type="text"
+                  value={sampleTopic}
+                  onChange={(e) => setSampleTopic(e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 ${innerBg}`}
+                  placeholder="Ví dụ: Động vật hoang dã, Các loại trái cây..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Ngôn ngữ</label>
+                  <select
+                    value={sampleLang}
+                    onChange={(e) => setSampleLang(e.target.value as 'vi' | 'en')}
+                    className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                  >
+                    <option value="vi" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>🇻🇳 Tiếng Việt</option>
+                    <option value="en" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>🇬🇧 Tiếng Anh</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Khóa học</label>
+                  <select
+                    value={sampleType}
+                    onChange={(e) => setSampleType(e.target.value as any)}
+                    className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                  >
+                    <option value="emotion" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Từ Vựng (Words)</option>
+                    <option value="motion" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Hành động (Motion)</option>
+                    <option value="sound" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Âm thanh (Sound)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Số lượng thẻ</label>
+                  <select
+                    value={sampleCount}
+                    onChange={(e) => setSampleCount(Number(e.target.value))}
+                    className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                  >
+                    <option value={3} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>3 Thẻ</option>
+                    <option value={5} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>5 Thẻ</option>
+                    <option value={8} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>8 Thẻ</option>
+                    <option value={10} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>10 Thẻ</option>
+                    <option value={15} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>15 Thẻ</option>
+                    <option value={20} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>20 Thẻ</option>
+                    <option value={30} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>30 Thẻ</option>
+                    <option value={40} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>40 Thẻ</option>
+                    <option value={50} className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>50 Thẻ</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Cấp độ</label>
+                  <select
+                    value={sampleLevel}
+                    onChange={(e) => setSampleLevel(e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                  >
+                    <option value="Dễ - Mầm non & Tiểu học" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Dễ (Mầm non)</option>
+                    <option value="Trung bình - Cấp 2" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Trung bình</option>
+                    <option value="Khó - Học thuật" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Khó (Học thuật)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className={`p-6 border-t flex justify-end gap-3 ${
+              theme === 'black' ? 'border-neutral-900 bg-neutral-900/20' : 'border-slate-100 bg-slate-50/50'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setShowSampleGenerator(false)}
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  theme === 'black' 
+                    ? 'text-slate-400 hover:text-slate-200 hover:bg-neutral-800' 
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200'
+                }`}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={seedingLoading || !sampleTopic.trim()}
+                onClick={generateSampleLessonViaLLM}
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {seedingLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    ĐANG TẠO...
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4" />
+                    TẠO & LƯU BÀI HỌC
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -134,14 +134,17 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
   // Fullscreen state & controller
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => {
-        setIsFullscreen(true);
-      }).catch(err => {
-        console.error("Error attempting to enable full-screen mode:", err.message);
-      });
+      if (cardRef.current) {
+        cardRef.current.requestFullscreen().then(() => {
+          setIsFullscreen(true);
+        }).catch(err => {
+          console.error("Error attempting to enable full-screen mode:", err.message);
+        });
+      }
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
@@ -679,6 +682,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
         {/* Big Displays Prompt Card */}
         <motion.div
+          ref={cardRef}
           animate={{
             y: [0, -6, 0]
           }}
@@ -695,6 +699,16 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
           {/* Active pacing remaining indicator bubbles */}
           <div className="absolute top-5 right-5 flex items-center gap-2.5">
+            {isFullscreen && (
+              <button 
+                onClick={toggleFullscreen}
+                type="button"
+                className={`p-1.5 rounded-lg transition-all cursor-pointer bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20`}
+                title="Thoát toàn màn hình (Exit Fullscreen)"
+              >
+                <Minimize className="w-3.5 h-3.5" />
+              </button>
+            )}
             {ttsLoading && (
               <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-red-400 bg-red-500/5 border border-red-500/20 px-2 py-0.5 rounded-md animate-pulse">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin text-red-500" /> Synthesizing Voice...
