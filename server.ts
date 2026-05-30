@@ -9,7 +9,8 @@ import multer from "multer";
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -140,7 +141,9 @@ CRITICAL REQUIREMENT: Each cue MUST contain ONLY a single vocabulary word, extre
 Each cue must have:
 1. 'text': The lively short vocabulary or question word (1-2 words maximum) in the primary language.
 2. 'translation': Direct translation of the word or question (English if Primary Lang is Vietnamese; Vietnamese if Primary Lang is English).
-Ensure outputs are educational, appropriate, totally random, and avoid dry generic words.`;
+Ensure outputs are educational, appropriate, totally random, and avoid dry generic words.
+
+Besides 'cues', you must also generate a 'suggestedSlug' string representing the lesson name translated into English components separated by hyphens. Format: "[theme]-[wordType]-[difficulty]". For example, "life-nouns-easy", "animals-verbs-medium", "space-questions-hard".`;
 
   // Check 9Router Pathway first, allowing use without standard Gemini Key
   if (nineRouterConfig && nineRouterConfig.enabled) {
@@ -163,11 +166,11 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
           messages: [
             {
               role: "system",
-              content: "You are a creative speaking assistant. Always respond with raw valid JSON containing a single root key 'cues' which is an array of prompt cards conforming to the schema of cues array."
+              content: "You are a creative speaking assistant. Always respond with raw valid JSON containing a single root key 'cues' which is an array of prompt cards, and a 'suggestedSlug' string."
             },
             {
               role: "user",
-              content: `${prompt}\nThe response MUST strictly be a JSON object containing a "cues" array: {"cues": [{"text": "...", "translation": "..."}]}`
+              content: `${prompt}\nThe response MUST strictly be a JSON object containing a "cues" array and a "suggestedSlug" string: {"cues": [{"text": "...", "translation": "..."}], "suggestedSlug": "..."}`
             }
           ],
           response_format: { type: "json_object" },
@@ -196,12 +199,13 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
         translation: cue.translation
       }));
 
-      return res.json({ cues: processedCues, source: `9router-${nineRouterConfig.llmModel}` });
+      return res.json({ cues: processedCues, suggestedSlug: data.suggestedSlug || null, source: `9router-${nineRouterConfig.llmModel}` });
     } catch (err: any) {
       console.warn("Failed to generate cues using 9Router API:", err.message);
       // Fall back to local mock cues seamlessly
       return res.json({
         cues: getFallbackCuesByConfig(currentLangCode, topic || 'Chung', wordType || 'Bất kỳ', level || 'Easy', count),
+        suggestedSlug: "offline-fallback-cues",
         source: "fallback",
         error: err.message || "Failed 9Router query"
       });
@@ -213,6 +217,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
     console.log("GEMINI_API_KEY is not configured or placeholder remains. Serving high-fidelity mock cues seamlessly.");
     return res.json({
       cues: getFallbackCuesByConfig(currentLangCode, topic || 'Chung', wordType || 'Bất kỳ', level || 'Easy', count),
+      suggestedSlug: "offline-fallback-cues",
       source: "fallback"
     });
   }
@@ -231,6 +236,10 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
           responseSchema: {
             type: Type.OBJECT,
             properties: {
+              suggestedSlug: {
+                type: Type.STRING,
+                description: "Short english slug for lesson based on topic, wordType, and level. Formatting: '[topic]-[wordType]-[difficulty]'"
+              },
               cues: {
                 type: Type.ARRAY,
                 items: {
@@ -243,7 +252,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
                 }
               }
             },
-            required: ["cues"]
+            required: ["cues", "suggestedSlug"]
           }
         }
       });
@@ -260,7 +269,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
         translation: cue.translation
       }));
 
-      return res.json({ cues: processedCues, source: "gemini-ai" });
+      return res.json({ cues: processedCues, suggestedSlug: data.suggestedSlug || null, source: "gemini-ai" });
 
     } catch (error: any) {
       lastError = error;
@@ -277,6 +286,7 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
   console.log("Gemini API queue exhausted or experiencing high demand. Gracefully serving offline backup cues.");
   return res.json({
     cues: getFallbackCuesByConfig(currentLangCode, topic || 'Chung', wordType || 'Bất kỳ', level || 'Easy', count),
+    suggestedSlug: "offline-fallback-cues",
     source: "fallback",
     error: lastError?.message || "Unavailable"
   });
@@ -464,63 +474,7 @@ app.get("/api/status", (req, res) => {
 const LESSONS_FILE = path.join(process.cwd(), "lessons_db.json");
 
 // Default initial preset lessons (Motion, Sound, Emotion)
-const INITIAL_PRESET_LESSONS = [
-  {
-    id: "preset-emo-classroom",
-    topic: "Trường học mộng mơ",
-    type: "emotion",
-    level: "Easy",
-    language: "vi",
-    cues: [
-      { id: "e1", text: "Bút chì", translation: "Pencil" },
-      { id: "e2", text: "Bảng đen", translation: "Blackboard" },
-      { id: "e3", text: "Thầy giáo", translation: "Teacher" },
-      { id: "e4", text: "Lớp học", translation: "Classroom" }
-    ]
-  },
-  {
-    id: "preset-mot-nature",
-    topic: "Chinh phục rừng xanh",
-    type: "motion",
-    level: "Medium",
-    language: "vi",
-    cues: [
-      { 
-        id: "m1", 
-        text: "Báo đốm", 
-        translation: "Jaguar", 
-        category: "pose",
-        poseJson: "{\"head\": [50, 20], \"spine\": [[50,20], [45,40], [30,55]], \"leftArm\": [[45,40], [55,50], [65,60]], \"rightArm\": [[45,40], [30,30], [20,25]], \"leftLeg\": [[30,55], [35,75], [40,90]], \"rightLeg\": [[30,55], [20,70], [10,85]]}"
-      },
-      { 
-        id: "m2", 
-        text: "Chim ưng", 
-        translation: "Falcon", 
-        category: "pose",
-        poseJson: "{\"head\": [50, 15], \"spine\": [[50,15], [50,55]], \"leftArm\": [[50,30], [20,25], [5,25]], \"rightArm\": [[50,30], [80,25], [95,25]], \"leftLeg\": [[50,55], [40,85]], \"rightLeg\": [[50,55], [60,85]]}"
-      },
-      { 
-        id: "m3", 
-        text: "Con rùa", 
-        translation: "Turtle", 
-        category: "pose",
-        poseJson: "{\"head\": [50, 20], \"spine\": [[50,20], [50,55]], \"leftArm\": [[50,30], [30,30], [10,30]], \"rightArm\": [[50,30], [60,40], [65,55]], \"leftLeg\": [[50,55], [35,85]], \"rightLeg\": [[50,55], [65,85]]}"
-      }
-    ]
-  },
-  {
-    id: "preset-snd-farm",
-    topic: "Thành phố nông trại",
-    type: "sound",
-    level: "Easy",
-    language: "vi",
-    cues: [
-      { id: "s1", text: "Con vịt", translation: "Duck", category: "sound", soundText: "Quack! Quack! Quack!" },
-      { id: "s2", text: "Sư tử", translation: "Lion", category: "sound", soundText: "Roar! Roaaaaar!" },
-      { id: "s3", text: "Con cừu", translation: "Sheep", category: "sound", soundText: "Baaah! Baaaah!" }
-    ]
-  }
-];
+const INITIAL_PRESET_LESSONS: any[] = [];
 
 // Helper to read database safely
 function readLessonsDb() {
@@ -763,11 +717,12 @@ app.delete("/api/lessons/:id", (req, res) => {
 // API: Update custom lesson
 app.put("/api/lessons/:id", (req, res) => {
   const { id } = req.params;
-  const { topic } = req.body;
+  const { topic, cues } = req.body;
   const lessons = readLessonsDb();
   const lessonIndex = lessons.findIndex((l: any) => l.id === id);
   if (lessonIndex > -1) {
     if (topic) lessons[lessonIndex].topic = topic;
+    if (cues !== undefined) lessons[lessonIndex].cues = cues;
     writeLessonsDb(lessons);
     res.json({ success: true, updatedLesson: lessons[lessonIndex] });
   } else {
@@ -794,12 +749,17 @@ app.post("/api/lessons/:id/generate-audio", async (req, res) => {
   let generatedCount = 0;
   let skippedCount = 0;
 
+  const isViOriginal = !(lesson.language === 'en'); // default to vi if undefined
+
   for (const cue of lesson.cues) {
     try {
+      const vtText = isViOriginal ? cue.text : (cue.translation || cue.text);
+      const enText = isViOriginal ? (cue.translation || cue.text) : cue.text;
+
       // Check VI audio
-      if (!cue.audioVi && cue.text) {
-        console.log(`Generating missing database audioVi for cue: "${cue.text}"`);
-        const vtAudio = await generateAudioBase64(cue.text, "vi", nineRouterConfig);
+      if (!cue.audioVi && vtText) {
+        console.log(`Generating missing database audioVi for cue: "${vtText}"`);
+        const vtAudio = await generateAudioBase64(vtText, "vi", nineRouterConfig);
         if (vtAudio) {
           cue.audioVi = vtAudio;
           generatedCount++;
@@ -809,7 +769,6 @@ app.post("/api/lessons/:id/generate-audio", async (req, res) => {
       }
 
       // Check EN audio
-      const enText = cue.translation || cue.text;
       if (!cue.audioEn && enText) {
         console.log(`Generating missing database audioEn for cue: "${enText}"`);
         const enAudio = await generateAudioBase64(enText, "en", nineRouterConfig);
@@ -821,7 +780,7 @@ app.post("/api/lessons/:id/generate-audio", async (req, res) => {
         skippedCount++;
       }
     } catch (err: any) {
-      console.warn(`Error generating audio for cue "${cue.text}":`, err.message);
+      console.warn(`Error generating audio for cue:`, err.message);
     }
   }
 
@@ -837,6 +796,38 @@ app.post("/api/lessons/:id/generate-audio", async (req, res) => {
     skipped: skippedCount,
     total: lesson.cues.length * 2
   });
+});
+
+
+// API: Visual SVG Generation via LLM
+app.post("/api/generate-svg", async (req, res) => {
+  const { text, category, language } = req.body;
+  if (!text) return res.status(400).json({ error: "Text requirement missing" });
+
+  const ai = getAIClient();
+  if (!ai) {
+    return res.status(500).json({ error: "No Gemini API Key available" });
+  }
+
+  try {
+    const prompt = `You are an expert graphic designer and SVG coder. Generate a clean, simple, flat-style SVG vector graphic representing the concept: "${text}" (Category: ${category}, Language: ${language}). The SVG should have a viewBox="0 0 100 100". Use a modern pastel or vibrant color palette. Return ONLY the raw SVG code without any markdown blocks or html boilerplate. Start directly with <svg> and end with </svg>. Make sure the svg uses percentages or is completely responsive (100% width and height).`;
+    
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        temperature: 0.7,
+      }
+    });
+    
+    let svgStr = response.text() || "";
+    svgStr = svgStr.replace(/```svg\n?/gi, '').replace(/```\n?/gi, '').trim();
+
+    res.json({ svg: svgStr });
+  } catch (err: any) {
+    console.error("SVG generation failed:", err);
+    res.status(500).json({ error: "SVG Generation failed" });
+  }
 });
 
 
@@ -883,8 +874,8 @@ app.post("/api/tts", async (req, res) => {
       const data = await response.json();
       return res.json({ audio: data.audio });
     } catch (error: any) {
-      console.log(`9Router TTS process failed (${error.name || 'Error'}). Cascading to fallback.`);
-      return res.json({ fallbackLocal: true, code: "9ROUTER_ERROR", error: "9Router Speech synthesis failed due to external API err." });
+      console.log(`9Router TTS Proxy: Model unavailable or unreachable. Bypassing safely to local TTS engine.`);
+      return res.json({ fallbackLocal: true, code: "9ROUTER_UNAVAILABLE", error: "9Router TTS bypassed." });
     }
   }
 

@@ -24,7 +24,8 @@ import {
   Minimize,
   Flag,
   Settings,
-  X
+  X,
+  ChevronDown
 } from 'lucide-react';
 
 interface StagePresenterProps {
@@ -35,6 +36,7 @@ interface StagePresenterProps {
   audioCache?: Record<string, string>;
   theme?: 'black' | 'light';
   onStop: () => void;
+  onStartSession?: (config: SessionConfig, mode: 'local'|'gemini'|'silent'|'9router', cues?: CueItem[]) => void;
 }
 
 // Custom stick-figure skeleton preview generator for physical motion poses
@@ -129,7 +131,7 @@ function PoseSketch({ poseJson }: { poseJson?: string }) {
   }
 }
 
-export default function StagePresenter({ config, ttsMode, initialCues, nineRouterConfig, audioCache = {}, theme = 'black', onStop }: StagePresenterProps) {
+export default function StagePresenter({ config, ttsMode, initialCues, nineRouterConfig, audioCache = {}, theme = 'black', onStop, onStartSession }: StagePresenterProps) {
   // Cue State
   const [cues, setCues] = useState<CueItem[]>(initialCues);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -171,9 +173,20 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   // Stage overlay settings
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'design' | 'settings'>('design');
-  const [fontSizeClass, setFontSizeClass] = useState<string>('text-3xl md:text-5xl');
+  const [fontSizeClass, setFontSizeClass] = useState<string>('text-6xl md:text-8xl');
+  const [customFontSize, setCustomFontSize] = useState<number | null>(null);
   const [textColorClass, setTextColorClass] = useState<string>('');
   const [bgImage, setBgImage] = useState<string>('');
+  const [availableLessons, setAvailableLessons] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/lessons')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setAvailableLessons(data);
+      })
+      .catch(console.error);
+  }, []);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -384,10 +397,19 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     }
   };
 
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Assistive Speech voice playback logic (text to speech)
   const speakCue = useCallback(async (text: string, cueId?: string, isTranslationText?: boolean) => {
     if (isAudioMuted || activeTtsMode === 'silent') return;
     
+    // Cancel any currently playing HTML5 audio
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+      activeAudioRef.current = null;
+    }
+
     const effectiveLang = isTranslationText ? (config.language === 'vi' ? 'en' : 'vi') : config.language;
 
     // 1. Instantly tap into our pre-cached audio dictionary if present (Zero delay playback!)
@@ -400,22 +422,23 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
       if (exactIndexMatch && exactIndexMatch.text === text) {
         targetId = exactIndexMatch.id;
       } else {
-        const matched = currentList.find(c => c.text === text);
+        const matched = currentList.find(c => c.text === text || c.translation === text);
         if (matched) {
           targetId = matched.id;
         }
       }
     }
 
-    const cachedBase64 = (targetId && !isTranslationText) ? (audioCache[targetId] || audioCache[text]) : audioCache[text];
+    const cachedBase64 = targetId ? audioCache[`${targetId}_${effectiveLang}`] : null;
 
     if (cachedBase64) {
-      console.log(`Preloaded TTS cache hit! Instant playback triggered for "${text}" (Zero latency)`);
+      console.log(`Preloaded TTS cache hit! Instant playback triggered for "${text}" (Lang: ${effectiveLang}) (Zero latency)`);
       try {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
         }
         const snd = new Audio(`data:audio/mp3;base64,${cachedBase64}`);
+        activeAudioRef.current = snd;
         await snd.play();
         return; // Cache play succeeded! Skip the network fetching block completely
       } catch (err) {
@@ -456,7 +479,11 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
             window.speechSynthesis.cancel();
           }
+          if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+          }
           const snd = new Audio(`data:audio/mp3;base64,${json.audio}`);
+          activeAudioRef.current = snd;
           snd.play().catch(e => console.log("Audio autoplay block:", e));
         }
       } catch (err: any) {
@@ -497,7 +524,11 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
             window.speechSynthesis.cancel();
           }
+          if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+          }
           const snd = new Audio(`data:audio/mp3;base64,${json.audio}`);
+          activeAudioRef.current = snd;
           snd.play().catch(e => console.log("Audio autoplay block:", e));
         }
       } catch (err: any) {
@@ -617,6 +648,42 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
       } else if (e.code === 'KeyL') {
         e.preventDefault();
         toggleLanguage();
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        const stage = document.getElementById('live-stage');
+        if (stage) {
+          if (!document.fullscreenElement) {
+            stage.requestFullscreen().catch(err => console.warn(err));
+          } else {
+            document.exitFullscreen();
+          }
+        }
+      } else if (e.code === 'KeyZ') {
+        e.preventDefault();
+        setCustomFontSize(prev => {
+          if (prev !== null) return prev + 10;
+          const el = document.getElementById('primary-cue-text');
+          if (el) {
+            return parseFloat(window.getComputedStyle(el).fontSize) + 10;
+          }
+          return 96 + 10;
+        });
+      } else if (e.code === 'KeyV') {
+        e.preventDefault();
+        const curCue = currentCuesRef.current[currentIndexRef.current];
+        if (curCue) {
+          const isViOrig = config.language === 'vi';
+          const viText = isViOrig ? curCue.text : (curCue.translation || curCue.text);
+          speakCue(viText, curCue.id, !isViOrig);
+        }
+      } else if (e.code === 'KeyE') {
+        e.preventDefault();
+        const curCue = currentCuesRef.current[currentIndexRef.current];
+        if (curCue) {
+          const isEnOrig = config.language === 'en';
+          const enText = isEnOrig ? curCue.text : (curCue.translation || curCue.text);
+          speakCue(enText, curCue.id, !isEnOrig);
+        }
       }
     };
 
@@ -624,7 +691,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [togglePlay, handleNext, onStop]);
+  }, [togglePlay, handleNext, onStop, config.language, speakCue]);
   const progressPercent = (secondsRemaining / config.duration) * 100;
 
   // Custom UI colors based on active theme choice
@@ -649,7 +716,32 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
           <div>
             <span className={`text-[10px] font-bold uppercase tracking-widest block ${labelColor}`}>Lesson Topic</span>
-            <span className={`text-xs font-bold line-clamp-1 ${titleColor}`}>{config.topic}</span>
+            <div className={`flex items-center gap-2 mt-0.5 ${titleColor}`}>
+              <select
+                className={`text-xs font-bold outline-none cursor-pointer appearance-none bg-transparent ${titleColor}`}
+                value={config.topic}
+                onChange={(e) => {
+                   const selectedTopic = e.target.value;
+                   const lesson = availableLessons.find(l => l.topic === selectedTopic);
+                   if (lesson && onStartSession) {
+                      onStartSession({
+                         topic: lesson.topic,
+                         level: lesson.level || 'Easy',
+                         language: lesson.language || 'vi',
+                         duration: config.duration,
+                         mode: lesson.type || 'emotion',
+                         count: lesson.cues?.length || 0
+                      }, activeTtsMode, lesson.cues || []);
+                   }
+                }}
+              >
+                <option value={config.topic}>{config.topic}</option>
+                {availableLessons.filter(l => l.topic !== config.topic).map(l => (
+                    <option key={l.id} value={l.topic}>{l.topic}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 opacity-50 pointer-events-none" />
+            </div>
           </div>
         </div>
 
@@ -671,6 +763,25 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
         {/* Audio controls */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+               if (onStartSession) {
+                 const isDbLesson = availableLessons.some(l => l.topic === config.topic && Array.isArray(l.cues) && l.cues.length > 0);
+                 const cuesToPass = isDbLesson ? initialCues : undefined;
+                 onStartSession(config, activeTtsMode, cuesToPass);
+               }
+            }}
+            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
+              theme === 'black'
+                ? 'text-slate-200 bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/20'
+                : 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+            }`}
+            title="Tạo Stage Mới (Restart/New Generation)"
+          >
+            <RefreshCw className="w-2.5 h-2.5 text-indigo-500" />
+            <span>Start Mới</span>
+          </button>
+
           <button 
             onClick={toggleFullscreen}
             type="button"
@@ -755,7 +866,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           
           {/* Absolute Logo Top-Left of Stage */}
           <div className="absolute top-4 left-6 z-50">
-            <img src="/logo.png" alt="Logo" className="h-10 md:h-12 object-contain drop-shadow-md opacity-80" />
+            <img src="/logo.png" alt="Logo" className="h-12 md:h-14 object-contain drop-shadow-md opacity-80" />
           </div>
 
           {/* Background Flags (Language Switches) */}
@@ -765,14 +876,14 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
               className={`hover:scale-110 transition-all ${(!languageInverted && config.language === 'vi') || (languageInverted && config.language === 'en') ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'opacity-40 saturate-50 hover:opacity-80'}`}
               title="Vietnamese"
             >
-              <img src="https://flagcdn.com/w80/vn.png" alt="VN" className="w-[34px] md:w-[40px] h-[24px] md:h-[28px] object-cover rounded-sm border border-black/10 shadow-sm" />
+              <img src="https://flagcdn.com/w80/vn.png" alt="VN" className="w-[44px] md:w-[50px] h-[34px] md:h-[38px] object-cover rounded-sm border border-black/10 shadow-sm" />
             </button>
             <button 
               onClick={() => setLanguageInverted(config.language === 'vi')} 
               className={`hover:scale-110 transition-all ${(!languageInverted && config.language === 'en') || (languageInverted && config.language === 'vi') ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'opacity-40 saturate-50 hover:opacity-80'}`}
               title="English"
             >
-              <img src="https://flagcdn.com/w80/us.png" alt="US" className="w-[34px] md:w-[40px] h-[24px] md:h-[28px] object-cover rounded-sm border border-black/10 shadow-sm" />
+              <img src="https://flagcdn.com/w80/us.png" alt="US" className="w-[44px] md:w-[50px] h-[34px] md:h-[38px] object-cover rounded-sm border border-black/10 shadow-sm" />
             </button>
             <div className="hidden xl:block w-px h-6 bg-slate-500/30 mx-1"></div>
             <button 
@@ -815,7 +926,11 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             {/* Primary Speaking Trigger */}
             <div className="space-y-4">
               <div className="flex items-center justify-center gap-3.5 flex-wrap">
-                <h2 className={`${fontSizeClass} font-display font-black tracking-tight animate-scale-up select-all break-words leading-tight drop-shadow-md transition-all ${textColorClass || titleColor}`}>
+                <h2 
+                  id="primary-cue-text"
+                  className={`${fontSizeClass} font-display font-black tracking-tight animate-scale-up select-all break-words leading-tight drop-shadow-md transition-all ${textColorClass || titleColor}`}
+                  style={customFontSize ? { fontSize: `${customFontSize}px` } : undefined}
+                >
                   {languageInverted && currentCue.translation ? currentCue.translation : currentCue.text}
                 </h2>
                 <button
@@ -844,37 +959,16 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             {/* Mode-Aware Visual Card Layout */}
             {config.mode === 'motion' ? (
               <div className="flex flex-row items-center justify-center gap-4 animate-fade-in w-full mt-2">
-                {/* AI Image Preview */}
-                <div className={`w-40 h-40 shrink-0 rounded-2xl flex items-center justify-center shadow-md border overflow-hidden relative group ${
-                  theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-200'
-                }`}>
-                  {(() => {
-                    const txt = currentCue.translation || currentCue.text || 'A';
-                    const hash = txt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                    const hue = hash % 360;
-                    return (
-                      <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id={`grad-${hash}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor={`hsl(${hue}, 80%, 70%)`} />
-                            <stop offset="100%" stopColor={`hsl(${(hue + 60) % 360}, 80%, 50%)`} />
-                          </linearGradient>
-                        </defs>
-                        <rect width="100" height="100" fill={`url(#grad-${hash})`} />
-                        <text x="50" y="55" fill="white" fontSize="40" fontWeight="bold" textAnchor="middle" alignmentBaseline="middle">
-                          {txt.charAt(0).toUpperCase()}
-                        </text>
-                      </svg>
-                    );
-                  })()}
-                </div>
-
                 {/* Animated Human-Like Pose Sketch Guide */}
                 <div className={`w-36 h-40 shrink-0 rounded-2xl flex items-center justify-center shadow-inner border overflow-hidden relative ${
                   theme === 'black' ? 'bg-neutral-900/50 border-neutral-800' : 'bg-slate-100/50 border-slate-200'
                 }`}>
                   <div className="w-24 h-24">
-                    <PoseSketch poseJson={currentCue.poseJson} />
+                    {currentCue.svgData ? (
+                      <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: currentCue.svgData }} />
+                    ) : (
+                      <PoseSketch poseJson={currentCue.poseJson} />
+                    )}
                   </div>
                   <div className="absolute top-2 left-2 text-[8px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
                     Pose Guide
@@ -887,7 +981,11 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
                   <div className={`w-32 h-40 shrink-0 rounded-2xl flex flex-col items-center justify-center p-2 relative overflow-hidden shadow-md border ${
                     theme === 'black' ? 'bg-neutral-950 border-neutral-900' : 'bg-white border-slate-200'
                   }`}>
-                    <Volume2 className="w-12 h-12 text-red-500 animate-pulse" />
+                    {currentCue.svgData ? (
+                      <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: currentCue.svgData }} />
+                    ) : (
+                      <Volume2 className="w-12 h-12 text-red-500 animate-pulse" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -950,7 +1048,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
               isPlaying 
                 ? 'bg-red-550 hover:bg-red-650 text-white shadow-md shadow-red-550/5'
-                : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-md shadow-emerald-500/5'
+                : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/30'
             }`}
           >
             {isPlaying ? (
@@ -1067,10 +1165,10 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
                   <div className="space-y-2">
                     <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'black' ? 'text-slate-500' : 'text-slate-400'}`}>Main Font Size (Text)</label>
                     <div className="flex gap-2">
-                      <button onClick={() => setFontSizeClass('text-xl md:text-3xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-xl md:text-3xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Small</button>
-                      <button onClick={() => setFontSizeClass('text-3xl md:text-5xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-3xl md:text-5xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Normal</button>
-                      <button onClick={() => setFontSizeClass('text-4xl md:text-6xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-4xl md:text-6xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Large</button>
-                      <button onClick={() => setFontSizeClass('text-6xl md:text-8xl')} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-6xl md:text-8xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Very Large</button>
+                      <button onClick={() => { setFontSizeClass('text-xl md:text-3xl'); setCustomFontSize(null); }} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-xl md:text-3xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Small</button>
+                      <button onClick={() => { setFontSizeClass('text-3xl md:text-5xl'); setCustomFontSize(null); }} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-3xl md:text-5xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Normal</button>
+                      <button onClick={() => { setFontSizeClass('text-4xl md:text-6xl'); setCustomFontSize(null); }} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-4xl md:text-6xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Large</button>
+                      <button onClick={() => { setFontSizeClass('text-6xl md:text-8xl'); setCustomFontSize(null); }} className={`flex-1 py-2 rounded text-xs font-bold transition-all border ${fontSizeClass === 'text-6xl md:text-8xl' ? 'border-red-500 text-red-500 bg-red-500/10' : (theme === 'black' ? 'border-neutral-800 text-slate-400 hover:border-neutral-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}>Very Large</button>
                     </div>
                   </div>
                   
@@ -1098,11 +1196,15 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
 
                   <div className={`p-4 rounded-xl border text-xs ${theme === 'black' ? 'bg-neutral-900/50 border-neutral-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                     <h4 className="font-bold mb-3 text-sm text-red-500">Stage Hotkeys Map</h4>
-                    <ul className="space-y-2.5">
+                    <ul className="space-y-2.5 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2.5">
                       <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Space</span> <span>Pause / Resume</span></li>
                       <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Enter</span> <span>Next Target</span></li>
                       <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Esc</span> <span>Exit Live Mode</span></li>
                       <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">L</span> <span>Toggle Language Target</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">F</span> <span>Toggle Fullscreen</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">Z</span> <span>Zoom Text +10px</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">V</span> <span>Speak Vietnamese</span></li>
+                      <li className="flex justify-between items-center"><span className="px-1.5 py-0.5 rounded border border-current font-bold uppercase text-[10px]">E</span> <span>Speak English</span></li>
                     </ul>
                   </div>
                 </div>

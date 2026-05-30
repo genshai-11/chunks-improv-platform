@@ -159,17 +159,35 @@ export default function App() {
     const cache: Record<string, string> = {};
     let loadedCount = 0;
 
-    // First, check pre-saved database audios (Zero network latency!)
-    const cuesNeedFetch: CueItem[] = [];
+    // Use specific keys for language: <id>_vi and <id>_en
+    const cuesNeedFetch: { cue: CueItem, targetLang: string, targetText: string }[] = [];
     cuesToPreload.forEach(cue => {
-      const storedAudio = lang === 'vi' ? cue.audioVi : cue.audioEn;
-      if (storedAudio) {
-        console.log(`Database saved audio cache hit for: "${cue.text}" (${lang.toUpperCase()})`);
-        cache[cue.id] = storedAudio;
-        cache[cue.text] = storedAudio;
+      // Primary Language
+      const primaryLang = lang;
+      const primaryAudio = primaryLang === 'vi' ? cue.audioVi : cue.audioEn;
+      const primaryText = cue.text;
+
+      // Secondary Language (Translation)
+      const secondaryLang = lang === 'vi' ? 'en' : 'vi';
+      const secondaryAudio = secondaryLang === 'vi' ? cue.audioVi : cue.audioEn;
+      const secondaryText = cue.translation;
+
+      // Handle Primary Audio
+      if (primaryAudio) {
+        console.log(`Database saved audio cache hit for: "${primaryText}" (${primaryLang.toUpperCase()})`);
+        cache[`${cue.id}_${primaryLang}`] = primaryAudio;
         loadedCount++;
-      } else {
-        cuesNeedFetch.push(cue);
+      } else if (primaryText) {
+        cuesNeedFetch.push({ cue, targetLang: primaryLang, targetText: primaryText });
+      }
+
+      // Handle Secondary Audio
+      if (secondaryAudio) {
+        console.log(`Database saved audio cache hit for: "${secondaryText}" (${secondaryLang.toUpperCase()})`);
+        cache[`${cue.id}_${secondaryLang}`] = secondaryAudio;
+        loadedCount++;
+      } else if (secondaryText) {
+        cuesNeedFetch.push({ cue, targetLang: secondaryLang, targetText: secondaryText });
       }
     });
 
@@ -179,14 +197,14 @@ export default function App() {
 
     if (cuesNeedFetch.length > 0) {
       await Promise.all(
-        cuesNeedFetch.map(async (cue) => {
+        cuesNeedFetch.map(async (fetchItem) => {
           try {
             const res = await fetch('/api/tts', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                text: cue.text,
-                language: lang,
+                text: fetchItem.targetText,
+                language: fetchItem.targetLang,
                 ttsMode: selectedTts,
                 nineRouterConfig: nineRouterConfig
               })
@@ -194,15 +212,14 @@ export default function App() {
             if (res.ok) {
               const data = await res.json();
               if (data.audio) {
-                cache[cue.id] = data.audio;
-                cache[cue.text] = data.audio;
+                cache[`${fetchItem.cue.id}_${fetchItem.targetLang}`] = data.audio;
               }
             }
           } catch (err) {
-            console.warn("Failed pre_synthesizing clip for cue Text:", cue.text, err);
+            console.warn("Failed pre_synthesizing clip for cue Text:", fetchItem.targetText, err);
           } finally {
             loadedCount++;
-            setLoadingStep(`Preloaded audio voice sequence: "${cue.text}" (${loadedCount}/${cuesToPreload.length})`);
+            setLoadingStep(`Preloaded audio voice sequence: "${fetchItem.targetText}" (${loadedCount}/${cuesToPreload.length * 2})`);
           }
         })
       );
@@ -500,6 +517,7 @@ export default function App() {
             audioCache={audioCache}
             theme={theme}
             onStop={handleStopSession} 
+            onStartSession={handleStartSession}
           />
         )}
 
