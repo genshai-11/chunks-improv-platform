@@ -264,7 +264,7 @@ export default function App() {
           topic: config.topic,
           wordType: config.wordType,
           level: config.level,
-          language: config.language,
+          language: config.wordType === '1 âm tiết' ? 'en' : config.language,
           count: config.count || 6,
           nineRouterConfig: nineRouterConfig // Passthrough model configs seamlessly
         })

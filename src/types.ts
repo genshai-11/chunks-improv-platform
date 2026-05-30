@@ -1,10 +1,13 @@
+export type PlaybackMode = 'once' | 'loop' | 'shuffle-loop' | 'infinite';
+
 export interface SessionConfig {
   topic: string;
-  wordType: string; // e.g., "Noun" | "Verb"| "Adjective" | "Any" (translated to Vietnamese or English)
+  wordType: string; // e.g., "Noun" | "Verb" | "Adjective" | "One syllable" | "Sentence" | "Any" (translated to Vietnamese or English)
   level: 'Easy' | 'Medium' | 'Hard';
   language: 'vi' | 'en';
   duration: number; // default: 3 seconds
   mode: 'motion' | 'sound' | 'emotion'; // Tab/Mode selector
+  playbackMode?: PlaybackMode; // once = stop at end, loop = repeat order, shuffle-loop = mix each loop, infinite = auto-generate more
   count?: number; // customized card counts
 }
 

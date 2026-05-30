@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { SessionConfig, NineRouterConfig, CueItem } from '../types';
+import { SessionConfig, NineRouterConfig, CueItem, PlaybackMode } from '../types';
 import { 
   Sparkles, 
   HelpCircle, 
@@ -210,6 +210,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const [wordType, setWordType] = useState<string>('Bất kỳ');
   const [level, setLevel] = useState<'Easy' | 'Medium' | 'Hard'>('Easy');
   const [duration, setDuration] = useState<number>(5);
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('once');
   // Default speaking modes - using 9router as specified by user intent
   const [ttsMode, setTtsMode] = useState<'local' | 'gemini' | 'silent' | '9router'>('9router');
 
@@ -254,6 +255,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
   const [quickLaunchLesson, setQuickLaunchLesson] = useState<any>(null);
   const [quickLaunchLanguage, setQuickLaunchLanguage] = useState<'vi' | 'en'>('vi');
   const [quickLaunchDuration, setQuickLaunchDuration] = useState<number>(5);
+  const [quickLaunchPlaybackMode, setQuickLaunchPlaybackMode] = useState<PlaybackMode>('once');
 
   // Individual Cue Regeneration States
   const [regenCueData, setRegenCueData] = useState<{ lessonId: string, cue: any, cueIndex: number } | null>(null);
@@ -349,7 +351,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           topic: topic.trim(),
           type: activeTab,
           level,
-          language,
+          language: wordType === '1 âm tiết' ? 'en' : language,
+          playbackMode,
           cues: customCues,
           nineRouterConfig
         })
@@ -398,7 +401,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             topic: `${topic.trim()} (Motion Library)`,
             type: 'motion',
             level,
-            language,
+            language: wordType === '1 âm tiết' ? 'en' : language,
+            playbackMode,
             cues: motionCues,
             nineRouterConfig
           })
@@ -415,7 +419,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             topic: `${topic.trim()} (Sound Library)`,
             type: 'sound',
             level,
-            language,
+            language: wordType === '1 âm tiết' ? 'en' : language,
+            playbackMode,
             cues: soundCues,
             nineRouterConfig
           })
@@ -432,7 +437,8 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             topic: `${topic.trim()} (Words Library)`,
             type: 'emotion',
             level,
-            language,
+            language: wordType === '1 âm tiết' ? 'en' : language,
+            playbackMode,
             cues: emotionCues,
             nineRouterConfig
           })
@@ -648,7 +654,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           topic: sampleTopic,
           wordType: sampleWordType,
           level: sampleLevel,
-          language: sampleLang,
+          language: sampleWordType === '1 âm tiết' ? 'en' : sampleLang,
           count: sampleCount,
           nineRouterConfig
         })
@@ -678,6 +684,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           body: JSON.stringify({
             topic: `${sampleTopic} ${titleSuffix}`,
             type: sampleType,
+            playbackMode,
             cues: adapted,
             nineRouterConfig
           })
@@ -713,7 +720,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
           topic,
           wordType,
           level,
-          language,
+          language: wordType === '1 âm tiết' ? 'en' : language,
           count: sampleCardCount,
           nineRouterConfig
         })
@@ -765,6 +772,12 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
     if (wordType === 'Dạng câu hỏi') {
       defaultText = language === 'vi' ? 'Tại sao?' : 'Why?';
       defaultTranslation = language === 'vi' ? 'Why?' : 'Tại sao?';
+    } else if (wordType === 'Dạng câu' || wordType === 'Câu ngắn' || wordType === 'Sentence') {
+      defaultText = language === 'vi' ? 'Em thích học từ mới.' : 'I like learning new words.';
+      defaultTranslation = language === 'vi' ? 'I like learning new words.' : 'Em thích học từ mới.';
+    } else if (wordType === '1 âm tiết' || wordType === 'One syllable') {
+      defaultText = language === 'vi' ? 'cây' : 'tree';
+      defaultTranslation = language === 'vi' ? 'tree' : 'cây';
     } else {
       defaultText = activeTab === 'motion' ? 'Chạy' : activeTab === 'sound' ? 'Con mèo' : 'Cây bút';
       defaultTranslation = activeTab === 'motion' ? 'Run' : activeTab === 'sound' ? 'Cat' : 'Pen';
@@ -902,15 +915,26 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
     }
   };
 
+  const normalizeCuesForSpeakingLanguage = (lessonCues: CueItem[], lessonLanguage: 'vi' | 'en' | undefined, speakingLanguage: 'vi' | 'en') => {
+    if (!lessonLanguage || lessonLanguage === speakingLanguage) return lessonCues;
+    return lessonCues.map(cue => ({
+      ...cue,
+      text: cue.translation || cue.text,
+      translation: cue.translation ? cue.text : cue.translation
+    }));
+  };
+
   const handleLaunchDirect = (e: React.FormEvent) => {
     e.preventDefault();
+    const launchLanguage = wordType === '1 âm tiết' ? 'en' : language;
     onStart({
       topic: topic || "Spontaneous Speaking HUD",
       wordType,
       level,
-      language,
+      language: launchLanguage,
       duration,
       mode: activeTab,
+      playbackMode,
       count: sampleCardCount
     }, ttsMode, customCues);
   };
@@ -1174,13 +1198,21 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Loại từ (Word Type)</label>
                     <select
                       value={wordType}
-                      onChange={(e) => setWordType(e.target.value)}
+                      onChange={(e) => {
+                        const nextWordType = e.target.value;
+                        setWordType(nextWordType);
+                        if (nextWordType === '1 âm tiết') {
+                          setLanguage('en');
+                        }
+                      }}
                       className={`w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
                     >
                       <option value="Bất kỳ">Bất kỳ (Any)</option>
                       <option value="Danh từ">Danh từ (Noun)</option>
                       <option value="Động từ">Động từ (Verb)</option>
                       <option value="Tính từ">Tính từ (Adjective)</option>
+                      <option value="1 âm tiết">1 âm tiết (One syllable)</option>
+                      <option value="Dạng câu">Dạng câu (Sentence)</option>
                       <option value="Dạng câu hỏi">Dạng câu hỏi (Question)</option>
                     </select>
                   </div>
@@ -1549,7 +1581,7 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
             </div>
 
             {/* Launch Parameter Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 font-sans">
               <div className="space-y-1.5">
                 <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Speaking Language</label>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -1591,6 +1623,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   onChange={(e) => setDuration(Number(e.target.value))}
                   className="w-full accent-red-500 h-1 rounded-lg cursor-pointer bg-slate-700 mt-2.5"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Cơ chế chạy thẻ</label>
+                <select
+                  value={playbackMode}
+                  onChange={(e) => setPlaybackMode(e.target.value as PlaybackMode)}
+                  className={`w-full px-3 py-2 border rounded-xl text-xs font-bold cursor-pointer ${innerBg}`}
+                >
+                  <option value="once" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Chạy hết rồi ngừng</option>
+                  <option value="loop" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Loop / Repeat theo thứ tự</option>
+                  <option value="shuffle-loop" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Mix rồi loop tiếp</option>
+                  <option value="infinite" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Auto thêm thẻ khi gần hết</option>
+                </select>
               </div>
 
               <div className="space-y-1.5">
@@ -1995,8 +2041,9 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                               type="button"
                               onClick={() => {
                                 setQuickLaunchLesson(les);
-                                setQuickLaunchLanguage(les.language || 'vi');
+                                setQuickLaunchLanguage(les.wordType === '1 âm tiết' ? 'en' : (les.language || 'vi'));
                                 setQuickLaunchDuration(duration);
+                                setQuickLaunchPlaybackMode((les.playbackMode as PlaybackMode) || playbackMode);
                                 setShowQuickLaunchModal(true);
                               }}
                               className="px-3.5 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-650 hover:to-rose-700 text-white font-black text-[10px] uppercase tracking-wide rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md shadow-rose-500/10 transition-all active:scale-[0.98]"
@@ -2518,13 +2565,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                     <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Loại từ (Word Type)</label>
                     <select
                       value={sampleWordType}
-                      onChange={(e) => setSampleWordType(e.target.value)}
+                      onChange={(e) => {
+                        const nextWordType = e.target.value;
+                        setSampleWordType(nextWordType);
+                        if (nextWordType === '1 âm tiết') {
+                          setSampleLang('en');
+                        }
+                      }}
                       className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold cursor-pointer ${innerBg}`}
                     >
                       <option value="Bất kỳ" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Tất cả (Bất kỳ)</option>
-                      <option value="Từ đơn" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Từ đơn (1 âm tiết)</option>
+                      <option value="Từ đơn" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Từ đơn</option>
+                      <option value="1 âm tiết" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>1 âm tiết (tree/free/mine)</option>
                       <option value="Từ phức" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Từ phức (2+ âm tiết)</option>
-                      <option value="Câu ngắn" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Câu ngắn (Short phrases)</option>
+                      <option value="Dạng câu" className={theme === 'black' ? 'bg-neutral-950 text-slate-200' : 'bg-white text-slate-800'}>Dạng câu (Sentence)</option>
                     </select>
                   </div>
                 )}
@@ -2669,6 +2723,20 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
                   className="w-full accent-red-500 h-1 rounded-lg cursor-pointer bg-slate-700 mt-2.5"
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <label className={`block uppercase text-[10px] font-black tracking-wider ${labelText}`}>Cơ chế chạy thẻ</label>
+                <select
+                  value={quickLaunchPlaybackMode}
+                  onChange={(e) => setQuickLaunchPlaybackMode(e.target.value as PlaybackMode)}
+                  className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 text-xs font-bold cursor-pointer ${innerBg}`}
+                >
+                  <option value="once" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Chạy hết rồi ngừng</option>
+                  <option value="loop" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Loop / Repeat theo thứ tự</option>
+                  <option value="shuffle-loop" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Mix rồi loop tiếp</option>
+                  <option value="infinite" className={theme === 'black' ? 'bg-neutral-950' : 'bg-white'}>Auto thêm thẻ khi gần hết</option>
+                </select>
+              </div>
             </div>
 
             <div className={`p-5 border-t flex justify-end gap-3 ${
@@ -2688,14 +2756,22 @@ export default function SetupPresenter({ onStart, nineRouterConfig, onUpdateNine
               <button
                 type="button"
                 onClick={() => {
+                  const launchLanguage = quickLaunchLesson.wordType === '1 âm tiết' ? 'en' : quickLaunchLanguage;
+                  const normalizedQuickCues = normalizeCuesForSpeakingLanguage(
+                    quickLaunchLesson.cues || [],
+                    quickLaunchLesson.language || 'vi',
+                    launchLanguage
+                  );
                   onStart({
                     topic: quickLaunchLesson.topic,
                     level: quickLaunchLesson.level || 'Easy',
-                    language: quickLaunchLanguage,
+                    language: launchLanguage,
+                    wordType: quickLaunchLesson.wordType || 'Bất kỳ',
                     duration: quickLaunchDuration,
                     mode: quickLaunchLesson.type || 'emotion',
-                    count: quickLaunchLesson.cues?.length || 0
-                  }, ttsMode, quickLaunchLesson.cues || []);
+                    playbackMode: quickLaunchPlaybackMode,
+                    count: normalizedQuickCues.length || 0
+                  }, ttsMode, normalizedQuickCues);
                   setShowQuickLaunchModal(false);
                 }}
                 className="px-6 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-red-500/20"

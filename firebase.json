@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "site": "chunks-improv-platform",
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "improv-platform",
+          "region": "asia-east1"
+        }
+      }
+    ]
+  }
+}

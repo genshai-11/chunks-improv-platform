@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Lazy-loaded GoogleGenAI Helper
 let aiClient: GoogleGenAI | null = null;
@@ -96,16 +96,137 @@ const fallbackCues: Record<string, Array<{ text: string; translation: string }>>
     { text: "Are we ready yet?", translation: "Chúng ta sẵn sàng chưa nhỉ?" },
     { text: "Whose turn is it?", translation: "Đến lượt ai vậy?" },
     { text: "Could it be real?", translation: "Liệu đó có phải sự thật?" }
+  ],
+  "vi_Sentence_Easy": [
+    { text: "Em thích đọc sách.", translation: "I like reading books." },
+    { text: "Trời hôm nay rất đẹp.", translation: "The weather is very nice today." },
+    { text: "Mẹ nấu cơm ngon.", translation: "Mom cooks delicious rice." },
+    { text: "Bạn em chơi bóng.", translation: "My friend plays ball." },
+    { text: "Con mèo đang ngủ.", translation: "The cat is sleeping." }
+  ],
+  "vi_Sentence_Medium": [
+    { text: "Em muốn đi thư viện, nhưng hôm nay em phải học tiếng Anh.", translation: "I want to go to the library, but today I have to study English." },
+    { text: "Sau giờ học, chúng em thường chơi thể thao và nói chuyện với bạn bè.", translation: "After school, we often play sports and talk with friends." },
+    { text: "Bạn Lan thích du lịch vì bạn ấy muốn khám phá nhiều thành phố mới.", translation: "Lan likes traveling because she wants to explore many new cities." },
+    { text: "Khi rảnh rỗi, em nghe nhạc hoặc luyện nói với gia đình.", translation: "In my free time, I listen to music or practice speaking with my family." },
+    { text: "Bữa sáng rất quan trọng, vì nó giúp em có năng lượng cả ngày.", translation: "Breakfast is important because it gives me energy all day." }
+  ],
+  "vi_Sentence_Hard": [
+    { text: "Mặc dù công nghệ giúp học tập nhanh hơn, chúng ta vẫn cần suy nghĩ độc lập và sáng tạo.", translation: "Although technology helps us learn faster, we still need independent and creative thinking." },
+    { text: "Nếu mọi người bảo vệ môi trường mỗi ngày, thành phố sẽ trở nên sạch đẹp và đáng sống hơn.", translation: "If everyone protects the environment every day, the city will become cleaner and more livable." },
+    { text: "Khi đối mặt với áp lực, em cố gắng bình tĩnh để tìm giải pháp phù hợp.", translation: "When facing pressure, I try to stay calm to find a suitable solution." },
+    { text: "Văn hóa địa phương rất đa dạng, nên du khách có thể học được nhiều góc nhìn mới.", translation: "Local culture is very diverse, so visitors can learn many new perspectives." },
+    { text: "Dù bài thuyết trình khá khó, nhóm em đã hợp tác tốt và hoàn thành đúng hạn.", translation: "Although the presentation was quite difficult, my team cooperated well and finished on time." }
+  ],
+  "en_Sentence_Easy": [
+    { text: "I like my school.", translation: "Em thích trường của em." },
+    { text: "The sun is bright.", translation: "Mặt trời rất sáng." },
+    { text: "My dog runs fast.", translation: "Con chó của em chạy nhanh." },
+    { text: "We eat rice today.", translation: "Hôm nay chúng em ăn cơm." },
+    { text: "She has a red bag.", translation: "Cô ấy có một chiếc cặp màu đỏ." }
+  ],
+  "en_Sentence_Medium": [
+    { text: "I want to visit the museum, but I have homework tonight.", translation: "Em muốn thăm bảo tàng, nhưng tối nay em có bài tập." },
+    { text: "After school, we play football and talk about our favorite movies.", translation: "Sau giờ học, chúng em chơi bóng đá và nói về những bộ phim yêu thích." },
+    { text: "My brother learns English because he wants to travel next year.", translation: "Anh trai em học tiếng Anh vì anh ấy muốn đi du lịch vào năm tới." },
+    { text: "Healthy food gives us energy, so we should eat more vegetables.", translation: "Đồ ăn lành mạnh cho chúng ta năng lượng, vì vậy chúng ta nên ăn nhiều rau hơn." },
+    { text: "On weekends, my family often cooks together and listens to music.", translation: "Vào cuối tuần, gia đình em thường nấu ăn cùng nhau và nghe nhạc." }
+  ],
+  "en_Sentence_Hard": [
+    { text: "Although technology changes quickly, students still need patience, curiosity, and clear communication.", translation: "Mặc dù công nghệ thay đổi nhanh chóng, học sinh vẫn cần kiên nhẫn, tò mò và giao tiếp rõ ràng." },
+    { text: "If people protect local parks, the city will feel healthier and more peaceful.", translation: "Nếu mọi người bảo vệ công viên địa phương, thành phố sẽ lành mạnh và yên bình hơn." },
+    { text: "When I feel nervous, I breathe slowly and focus on one small step.", translation: "Khi em cảm thấy lo lắng, em thở chậm và tập trung vào một bước nhỏ." },
+    { text: "Because cultures are different, travelers should listen carefully and respect local habits.", translation: "Vì các nền văn hóa khác nhau, du khách nên lắng nghe cẩn thận và tôn trọng thói quen địa phương." },
+    { text: "Even when a project is difficult, teamwork can turn pressure into creative energy.", translation: "Ngay cả khi dự án khó, tinh thần đồng đội có thể biến áp lực thành năng lượng sáng tạo." }
+  ],
+  "en_OneSyllable_Easy": [
+    { text: "tree", translation: "cây" },
+    { text: "free", translation: "tự do / miễn phí" },
+    { text: "mine", translation: "của tôi / mỏ" },
+    { text: "sun", translation: "mặt trời" },
+    { text: "book", translation: "sách" }
+  ],
+  "en_OneSyllable_Medium": [
+    { text: "bridge", translation: "cây cầu" },
+    { text: "growth", translation: "sự phát triển" },
+    { text: "choice", translation: "sự lựa chọn" },
+    { text: "dream", translation: "giấc mơ" },
+    { text: "truth", translation: "sự thật" }
+  ],
+  "en_OneSyllable_Hard": [
+    { text: "strength", translation: "sức mạnh" },
+    { text: "thought", translation: "ý nghĩ" },
+    { text: "scheme", translation: "kế hoạch / mưu đồ" },
+    { text: "glimpse", translation: "cái nhìn thoáng qua" },
+    { text: "depth", translation: "chiều sâu" }
+  ],
+  "vi_OneSyllable_Easy": [
+    { text: "tree", translation: "cây" },
+    { text: "free", translation: "tự do / miễn phí" },
+    { text: "mine", translation: "của tôi / mỏ" },
+    { text: "sun", translation: "mặt trời" },
+    { text: "book", translation: "sách" }
+  ],
+  "vi_OneSyllable_Medium": [
+    { text: "bridge", translation: "cây cầu" },
+    { text: "growth", translation: "sự phát triển" },
+    { text: "choice", translation: "sự lựa chọn" },
+    { text: "dream", translation: "giấc mơ" },
+    { text: "truth", translation: "sự thật" }
+  ],
+  "vi_OneSyllable_Hard": [
+    { text: "strength", translation: "sức mạnh" },
+    { text: "thought", translation: "ý nghĩ" },
+    { text: "scheme", translation: "kế hoạch / mưu đồ" },
+    { text: "glimpse", translation: "cái nhìn thoáng qua" },
+    { text: "depth", translation: "chiều sâu" }
   ]
 };
 
+function normalizeWordType(value: string = "") {
+  return value.trim().toLowerCase();
+}
+
+function isQuestionWordType(value: string = "") {
+  const normalized = normalizeWordType(value);
+  return normalized === "dạng câu hỏi" || normalized === "question";
+}
+
+function isSentenceWordType(value: string = "") {
+  const normalized = normalizeWordType(value);
+  return (
+    normalized === "dạng câu" ||
+    normalized === "câu" ||
+    normalized === "câu ngắn" ||
+    normalized === "sentence" ||
+    normalized === "short sentence"
+  );
+}
+
+function isOneSyllableWordType(value: string = "") {
+  const normalized = normalizeWordType(value);
+  return (
+    normalized === "1 âm tiết" ||
+    normalized === "một âm tiết" ||
+    normalized === "từ một âm tiết" ||
+    normalized === "one syllable" ||
+    normalized === "one-syllable" ||
+    normalized === "monosyllable" ||
+    normalized === "monosyllabic word"
+  );
+}
+
 // Returns robust fallback data based on configurations
 function getFallbackCuesByConfig(lang: string, topic: string, wordType: string, level: string, count: number) {
-  const normWordType = (wordType || '').trim();
-  let key = `${lang}_${wordType === 'Bất kỳ' || wordType === 'Any' ? 'Any' : 'School'}_${level}`;
+  const fallbackLang = isOneSyllableWordType(wordType) ? 'en' : lang;
+  let key = `${fallbackLang}_${wordType === 'Bất kỳ' || wordType === 'Any' ? 'Any' : 'School'}_${level}`;
   
-  if (normWordType === "Dạng câu hỏi" || normWordType === "Question") {
-    key = `${lang}_Question_${level}`;
+  if (isQuestionWordType(wordType)) {
+    key = `${fallbackLang}_Question_${level}`;
+  } else if (isSentenceWordType(wordType)) {
+    key = `${fallbackLang}_Sentence_${level}`;
+  } else if (isOneSyllableWordType(wordType)) {
+    key = `en_OneSyllable_${level}`;
   }
   
   const list = fallbackCues[key] || fallbackCues[`${lang}_Question_Easy`] || fallbackCues["vi_School_Easy"];
@@ -124,26 +245,53 @@ function getFallbackCuesByConfig(lang: string, topic: string, wordType: string, 
 // API: Generate Cues Live
 app.post("/api/cue/generate", async (req, res) => {
   const { topic, wordType, level, language, count = 5, nineRouterConfig } = req.body;
-  const currentLangCode = language || 'vi';
-
+  const isSentenceRequest = isSentenceWordType(wordType);
+  const isQuestionRequest = isQuestionWordType(wordType);
+  const isOneSyllableRequest = isOneSyllableWordType(wordType);
+  const currentLangCode = isOneSyllableRequest ? 'en' : (language || 'vi');
   const wordTypePrompt = wordType && wordType !== 'Bất kỳ' && wordType !== 'Any'
     ? `Ensure every generated item fits the format/grammatical word category: "${wordType}".`
     : "Any word type (nouns, verbs, adjectives, questions) is fine.";
 
+  const cueShapePrompt = isSentenceRequest
+    ? `CRITICAL SENTENCE REQUIREMENT: Each cue MUST be one complete sentence in the primary language, not an isolated word or phrase.
+Difficulty-specific sentence rules:
+- Easy: a simple single-clause sentence under 10 words, using basic everyday vocabulary and beginner topics such as family, school, food, weather, classroom, colors, animals, or daily actions.
+- Medium: a compound/two-part sentence around 12-20 words, using A2-B1 topics such as routines, travel, hobbies, health, work, shopping, plans, opinions, or experiences. Use connectors like "and", "but", "because", "so" / "và", "nhưng", "vì", "nên".
+- Hard: a higher-level compound or complex two-part sentence around 18-25 words, using richer topics such as culture, environment, technology, emotions, problem solving, teamwork, creativity, or community.
+Do NOT output questions unless the selected word type is Question. Keep each cue as exactly one sentence.`
+    : isOneSyllableRequest
+      ? `CRITICAL ONE-SYLLABLE REQUIREMENT: Ignore the requested UI language for this word type. Every cue MUST be English first, then Vietnamese translation.
+Each cue.text MUST be exactly one single English word with exactly one spoken syllable, such as "tree", "free", "mine", "sun", "book", "bridge", "strength".
+Each cue.translation MUST be the Vietnamese meaning of that English word. Do NOT output Vietnamese in text. Do NOT output two-syllable words, phrases, sentences, or questions. Avoid invalid examples like "sunshine" because it has two syllables; use "sun" instead.
+Difficulty-specific one-syllable rules:
+- Easy: common beginner one-syllable English words from basic vocabulary.
+- Medium: useful A2-B1 one-syllable English words with slightly richer meaning.
+- Hard: advanced or challenging one-syllable English words with consonant clusters or abstract meanings.`
+      : `CRITICAL REQUIREMENT: Each cue MUST contain ONLY a single vocabulary word, extremely short expression, or short question (maximum of 1 to 2 words maximum, e.g., "Bút chì", "Chạy bộ", "Thông minh", "Tại sao?", "Thật hả?" / "Pencil", "Running", "Intelligent", "Why?", "Really?"). Do NOT output any long sentences, phrases, descriptions, scenarios, or instructions. Keep it strictly as distinct vocabulary/question items.`;
+
+  const cueTextDescription = isSentenceRequest
+    ? "The lively sentence cue in the primary language."
+    : isQuestionRequest
+      ? "The lively short question word or question expression (1-2 words maximum) in the primary language."
+      : isOneSyllableRequest
+        ? "Exactly one one-syllable English word."
+        : "The lively short vocabulary or expression (1-2 words maximum) in the primary language.";
+
   const prompt = `Generate a list of exactly ${count} creative, spontaneous, energetic speaking prompt cues for an improvisation/speaking live class.
 Topic/Theme of prompt cues: "${topic || 'General classroom topics'}"
 Difficulty Level: "${level || 'Easy'}"
-Primary output language of the cues: ${currentLangCode === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'}.
+Primary output language of the cues: ${isOneSyllableRequest ? 'English only for text, Vietnamese only for translation' : currentLangCode === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'}.
 ${wordTypePrompt}
 
-CRITICAL REQUIREMENT: Each cue MUST contain ONLY a single vocabulary word, extremely short expression, or short question (maximum of 1 to 2 words maximum, e.g., "Bút chì", "Chạy bộ", "Thông minh", "Tại sao?", "Thật hả?" / "Pencil", "Running", "Intelligent", "Why?", "Really?"). Do NOT output any long sentences, phrases, descriptions, scenarios, or instructions. Keep it strictly as distinct vocabulary/question items.
+${cueShapePrompt}
 
 Each cue must have:
-1. 'text': The lively short vocabulary or question word (1-2 words maximum) in the primary language.
-2. 'translation': Direct translation of the word or question (English if Primary Lang is Vietnamese; Vietnamese if Primary Lang is English).
+1. 'text': ${cueTextDescription}
+2. 'translation': Direct translation of the cue (English if Primary Lang is Vietnamese; Vietnamese if Primary Lang is English).
 Ensure outputs are educational, appropriate, totally random, and avoid dry generic words.
 
-Besides 'cues', you must also generate a 'suggestedSlug' string representing the lesson name translated into English components separated by hyphens. Format: "[theme]-[wordType]-[difficulty]". For example, "life-nouns-easy", "animals-verbs-medium", "space-questions-hard".`;
+Besides 'cues', you must also generate a 'suggestedSlug' string representing the lesson name translated into English components separated by hyphens. Format: "[theme]-[wordType]-[difficulty]". For example, "life-nouns-easy", "animals-verbs-medium", "space-questions-hard", "daily-sentences-easy".`;
 
   // Check 9Router Pathway first, allowing use without standard Gemini Key
   if (nineRouterConfig && nineRouterConfig.enabled) {
@@ -202,7 +350,14 @@ Besides 'cues', you must also generate a 'suggestedSlug' string representing the
       return res.json({ cues: processedCues, suggestedSlug: data.suggestedSlug || null, source: `9router-${nineRouterConfig.llmModel}` });
     } catch (err: any) {
       console.warn("Failed to generate cues using 9Router API:", err.message);
-      // Fall back to local mock cues seamlessly
+      if (isOneSyllableRequest) {
+        return res.status(502).json({
+          error: err.message || "Failed 9Router query",
+          source: "9router-error",
+          message: "One-syllable mode requires live LLM generation. Fallback/mock cue lists are disabled for this word type."
+        });
+      }
+      // Fall back to local mock cues seamlessly for non one-syllable modes
       return res.json({
         cues: getFallbackCuesByConfig(currentLangCode, topic || 'Chung', wordType || 'Bất kỳ', level || 'Easy', count),
         suggestedSlug: "offline-fallback-cues",
@@ -214,6 +369,13 @@ Besides 'cues', you must also generate a 'suggestedSlug' string representing the
 
   const ai = getAIClient();
   if (!ai) {
+    if (isOneSyllableRequest) {
+      return res.status(503).json({
+        error: "Live LLM is required for one-syllable generation. Enable 9Router or configure GEMINI_API_KEY.",
+        source: "llm-required",
+        message: "Fallback/mock cue lists are disabled for one-syllable mode."
+      });
+    }
     console.log("GEMINI_API_KEY is not configured or placeholder remains. Serving high-fidelity mock cues seamlessly.");
     return res.json({
       cues: getFallbackCuesByConfig(currentLangCode, topic || 'Chung', wordType || 'Bất kỳ', level || 'Easy', count),
@@ -245,7 +407,7 @@ Besides 'cues', you must also generate a 'suggestedSlug' string representing the
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    text: { type: Type.STRING, description: "The short vocabulary word or expression to display on screen" },
+                    text: { type: Type.STRING, description: "The cue text to display on screen: short vocabulary/question by default, an English one-syllable word when One Syllable is selected, or a full sentence when Sentence is selected" },
                     translation: { type: Type.STRING, description: "Direct english/vietnamese equivalent translation" }
                   },
                   required: ["text", "translation"]
@@ -280,6 +442,14 @@ Besides 'cues', you must also generate a 'suggestedSlug' string representing the
         await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
+  }
+
+  if (isOneSyllableRequest) {
+    return res.status(502).json({
+      error: lastError?.message || "Unavailable",
+      source: "llm-error",
+      message: "One-syllable mode requires live LLM generation. Fallback/mock cue lists are disabled for this word type."
+    });
   }
 
   // If retries are all exhausted, gracefully fall back to high quality mocks without raising a hard system exception
@@ -820,7 +990,7 @@ app.post("/api/generate-svg", async (req, res) => {
       }
     });
     
-    let svgStr = response.text() || "";
+    let svgStr = response.text || "";
     svgStr = svgStr.replace(/```svg\n?/gi, '').replace(/```\n?/gi, '').trim();
 
     res.json({ svg: svgStr });

@@ -28,6 +28,31 @@ import {
   ChevronDown
 } from 'lucide-react';
 
+const shuffleCues = (items: CueItem[]) => {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const playbackModeLabels: Record<string, string> = {
+  once: 'Run once',
+  loop: 'Loop',
+  'shuffle-loop': 'Mix loop',
+  infinite: 'Auto refill'
+};
+
+const normalizeCuesForSpeakingLanguage = (lessonCues: CueItem[], lessonLanguage: 'vi' | 'en' | undefined, speakingLanguage: 'vi' | 'en') => {
+  if (!lessonLanguage || lessonLanguage === speakingLanguage) return lessonCues;
+  return lessonCues.map(cue => ({
+    ...cue,
+    text: cue.translation || cue.text,
+    translation: cue.translation ? cue.text : cue.translation
+  }));
+};
+
 interface StagePresenterProps {
   config: SessionConfig;
   ttsMode: 'local' | 'gemini' | 'silent' | '9router';
@@ -256,7 +281,8 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           wordType: config.wordType,
           level: config.level,
           language: config.language,
-          count: 5
+          count: 5,
+          nineRouterConfig
         })
       });
       if (!response.ok) throw new Error("Server generation failed");
@@ -286,7 +312,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     } finally {
       setIsPreFetching(false);
     }
-  }, [config, isPreFetching]);
+  }, [config, isPreFetching, nineRouterConfig]);
 
   // STT Microphone capture & Coach Evaluation Analysis Handlers using NineRouter
   const startRecording = async () => {
@@ -398,17 +424,42 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   };
 
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsRequestSeqRef = useRef<number>(0);
+  const ttsAbortRef = useRef<AbortController | null>(null);
 
-  // Assistive Speech voice playback logic (text to speech)
-  const speakCue = useCallback(async (text: string, cueId?: string, isTranslationText?: boolean) => {
-    if (isAudioMuted || activeTtsMode === 'silent') return;
-    
-    // Cancel any currently playing HTML5 audio
+  const stopCurrentSpeech = useCallback((abortPending: boolean = true) => {
+    if (abortPending && ttsAbortRef.current) {
+      ttsAbortRef.current.abort();
+      ttsAbortRef.current = null;
+    }
+
     if (activeAudioRef.current) {
       activeAudioRef.current.pause();
       activeAudioRef.current.currentTime = 0;
       activeAudioRef.current = null;
     }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      ttsRequestSeqRef.current += 1;
+      stopCurrentSpeech(true);
+    };
+  }, [stopCurrentSpeech]);
+
+  // Assistive Speech voice playback logic (text to speech)
+  const speakCue = useCallback(async (text: string, cueId?: string, isTranslationText?: boolean) => {
+    if (isAudioMuted || activeTtsMode === 'silent') return;
+
+    const requestId = ++ttsRequestSeqRef.current;
+    const isLatestTtsRequest = () => requestId === ttsRequestSeqRef.current && !isAudioMuted && activeTtsMode !== 'silent';
+
+    // Always stop any previous local/browser audio and abort any older TTS fetch before starting a new utterance.
+    stopCurrentSpeech(true);
 
     const effectiveLang = isTranslationText ? (config.language === 'vi' ? 'en' : 'vi') : config.language;
 
@@ -434,20 +485,19 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     if (cachedBase64) {
       console.log(`Preloaded TTS cache hit! Instant playback triggered for "${text}" (Lang: ${effectiveLang}) (Zero latency)`);
       try {
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
         const snd = new Audio(`data:audio/mp3;base64,${cachedBase64}`);
         activeAudioRef.current = snd;
         await snd.play();
         return; // Cache play succeeded! Skip the network fetching block completely
       } catch (err) {
+        if (!isLatestTtsRequest()) return;
         console.warn("Cached audio playback interrupted. Dropping to standard network call.", err);
       }
     }
 
+    if (!isLatestTtsRequest()) return;
+
     if (activeTtsMode === 'local' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = effectiveLang === 'vi' ? 'vi-VN' : 'en-US';
       
@@ -461,46 +511,49 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
       window.speechSynthesis.speak(utterance);
     } 
     else if (activeTtsMode === 'gemini') {
+      const controller = new AbortController();
+      ttsAbortRef.current = controller;
       try {
         setTtsLoading(true);
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, language: effectiveLang })
+          body: JSON.stringify({ text, language: effectiveLang }),
+          signal: controller.signal
         });
         if (!res.ok) throw new Error("TTS endpoint error");
         const json = await res.json();
+        if (!isLatestTtsRequest()) return;
         
         if (json.fallbackLocal) {
           throw new Error(json.error || "Rate limited");
         }
 
         if (json.audio) {
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-          }
-          if (activeAudioRef.current) {
-            activeAudioRef.current.pause();
-          }
+          stopCurrentSpeech(false);
           const snd = new Audio(`data:audio/mp3;base64,${json.audio}`);
           activeAudioRef.current = snd;
           snd.play().catch(e => console.log("Audio autoplay block:", e));
         }
       } catch (err: any) {
+        if (err?.name === 'AbortError' || !isLatestTtsRequest()) return;
         setTtsFeedback("API Quota protection: Seamlessly transitioned to Local Speech Engine to preserve classroom flow ⚡");
         setActiveTtsMode('local');
         console.warn("Gemini premium TTS failed or rate-limited. Permanently cascading to local browser synthesizer.", err);
         if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
+          stopCurrentSpeech(false);
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = effectiveLang === 'vi' ? 'vi-VN' : 'en-US';
           window.speechSynthesis.speak(utterance);
         }
       } finally {
-        setTtsLoading(false);
+        if (ttsAbortRef.current === controller) ttsAbortRef.current = null;
+        if (isLatestTtsRequest()) setTtsLoading(false);
       }
     }
     else if (activeTtsMode === '9router') {
+      const controller = new AbortController();
+      ttsAbortRef.current = controller;
       try {
         setTtsLoading(true);
         const res = await fetch('/api/tts', {
@@ -511,41 +564,40 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
             language: effectiveLang,
             ttsMode: '9router',
             nineRouterConfig
-          })
+          }),
+          signal: controller.signal
         });
         if (!res.ok) throw new Error("9Router TTS endpoint error");
         const json = await res.json();
+        if (!isLatestTtsRequest()) return;
         
         if (json.fallbackLocal) {
           throw new Error(json.error || "9Router TTS model error");
         }
 
         if (json.audio) {
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-          }
-          if (activeAudioRef.current) {
-            activeAudioRef.current.pause();
-          }
+          stopCurrentSpeech(false);
           const snd = new Audio(`data:audio/mp3;base64,${json.audio}`);
           activeAudioRef.current = snd;
           snd.play().catch(e => console.log("Audio autoplay block:", e));
         }
       } catch (err: any) {
+        if (err?.name === 'AbortError' || !isLatestTtsRequest()) return;
         setTtsFeedback("9Router Speak fallback: Seamlessly transitioned to Local Speech Engine to preserve classroom flow ⚡");
         setActiveTtsMode('local');
         console.warn("9Router TTS failed. Permanently cascading to local browser synthesizer.", err);
         if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
+          stopCurrentSpeech(false);
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = effectiveLang === 'vi' ? 'vi-VN' : 'en-US';
           window.speechSynthesis.speak(utterance);
         }
       } finally {
-        setTtsLoading(false);
+        if (ttsAbortRef.current === controller) ttsAbortRef.current = null;
+        if (isLatestTtsRequest()) setTtsLoading(false);
       }
     }
-  }, [activeTtsMode, isAudioMuted, config.language, localVoice, nineRouterConfig, audioCache]);
+  }, [activeTtsMode, isAudioMuted, config.language, nineRouterConfig, audioCache, stopCurrentSpeech]);
 
   // Advance Cue logic
   const handleNext = useCallback(() => {
@@ -560,34 +612,68 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     }
     setIsRecording(false);
 
+    const playbackMode = config.playbackMode || 'once';
     const nextIdx = currentIndexRef.current + 1;
     const currentList = currentCuesRef.current;
 
-    if (nextIdx < currentList.length) {
-      setCurrentIndex(nextIdx);
+    const goToCue = (list: CueItem[], index: number) => {
+      const nextCue = list[index];
+      if (!nextCue) return;
+      currentCuesRef.current = list;
+      currentIndexRef.current = index;
+      setCurrentIndex(index);
       setSecondsRemaining(config.duration);
-      const targetText = languageInverted && currentList[nextIdx].translation ? currentList[nextIdx].translation : currentList[nextIdx].text;
-      speakCue(targetText, currentList[nextIdx].id, languageInverted);
+      const targetText = languageInverted && nextCue.translation ? nextCue.translation : nextCue.text;
+      speakCue(targetText, nextCue.id, languageInverted);
       setHistory(prev => {
-        if (prev.find(x => x.id === currentList[nextIdx].id)) return prev;
-        return [...prev, currentList[nextIdx]];
+        if (prev.find(x => x.id === nextCue.id)) return prev;
+        return [...prev, nextCue];
       });
+    };
+
+    if (nextIdx < currentList.length) {
+      goToCue(currentList, nextIdx);
 
       const remainingCount = currentList.length - nextIdx;
-      if (remainingCount < 3) {
+      if (playbackMode === 'infinite' && remainingCount < 3) {
         triggerBufferReplenish();
       }
-    } else {
-      triggerBufferReplenish().then(() => {
-        setTimeout(() => {
-          const updatedList = currentCuesRef.current;
-          if (currentIndexRef.current + 1 < updatedList.length) {
-            handleNext();
-          }
-        }, 100);
-      });
+      return;
     }
-  }, [config.duration, speakCue, triggerBufferReplenish, languageInverted]);
+
+    if (playbackMode === 'once') {
+      ttsRequestSeqRef.current += 1;
+      stopCurrentSpeech(true);
+      setIsPlaying(false);
+      setSecondsRemaining(0);
+      setTtsLoading(false);
+      setTtsFeedback(`✅ Đã chạy hết ${currentList.length} thẻ. Bấm Start Mới hoặc chọn Loop nếu muốn chạy tiếp.`);
+      return;
+    }
+
+    if (playbackMode === 'loop') {
+      goToCue(currentList, 0);
+      return;
+    }
+
+    if (playbackMode === 'shuffle-loop') {
+      const shuffled = shuffleCues(currentList);
+      setCues(shuffled);
+      goToCue(shuffled, 0);
+      return;
+    }
+
+    triggerBufferReplenish().then(() => {
+      setTimeout(() => {
+        const updatedList = currentCuesRef.current;
+        if (currentIndexRef.current + 1 < updatedList.length) {
+          handleNext();
+        } else if (updatedList.length > 0) {
+          goToCue(updatedList, 0);
+        }
+      }, 100);
+    });
+  }, [config.duration, config.playbackMode, speakCue, triggerBufferReplenish, languageInverted, stopCurrentSpeech]);
 
   // Pause/Resume toggler
   const togglePlay = useCallback(() => {
@@ -595,8 +681,24 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
   }, []);
 
   const toggleLanguage = useCallback(() => {
+    ttsRequestSeqRef.current += 1;
+    stopCurrentSpeech(true);
+    setTtsLoading(false);
     setLanguageInverted(prev => !prev);
-  }, []);
+  }, [stopCurrentSpeech]);
+
+  const speakCurrentCueInLanguage = useCallback((targetLang: 'vi' | 'en') => {
+    const curCue = currentCuesRef.current[currentIndexRef.current];
+    if (!curCue) return;
+
+    const shouldUseTranslation = targetLang !== config.language && !!curCue.translation?.trim();
+    const targetText = shouldUseTranslation ? curCue.translation! : curCue.text;
+
+    // Keep the visual primary cue and the spoken language locked together.
+    // Example: speaking English => English becomes #primary-cue-text, Vietnamese moves below.
+    setLanguageInverted(shouldUseTranslation);
+    speakCue(targetText, curCue.id, shouldUseTranslation);
+  }, [config.language, speakCue]);
 
   // Timer Tick implementation
   useEffect(() => {
@@ -670,20 +772,10 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
         });
       } else if (e.code === 'KeyV') {
         e.preventDefault();
-        const curCue = currentCuesRef.current[currentIndexRef.current];
-        if (curCue) {
-          const isViOrig = config.language === 'vi';
-          const viText = isViOrig ? curCue.text : (curCue.translation || curCue.text);
-          speakCue(viText, curCue.id, !isViOrig);
-        }
+        speakCurrentCueInLanguage('vi');
       } else if (e.code === 'KeyE') {
         e.preventDefault();
-        const curCue = currentCuesRef.current[currentIndexRef.current];
-        if (curCue) {
-          const isEnOrig = config.language === 'en';
-          const enText = isEnOrig ? curCue.text : (curCue.translation || curCue.text);
-          speakCue(enText, curCue.id, !isEnOrig);
-        }
+        speakCurrentCueInLanguage('en');
       }
     };
 
@@ -691,7 +783,7 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [togglePlay, handleNext, onStop, config.language, speakCue]);
+  }, [togglePlay, handleNext, onStop, config.language, speakCue, toggleLanguage, speakCurrentCueInLanguage]);
   const progressPercent = (secondsRemaining / config.duration) * 100;
 
   // Custom UI colors based on active theme choice
@@ -724,14 +816,21 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
                    const selectedTopic = e.target.value;
                    const lesson = availableLessons.find(l => l.topic === selectedTopic);
                    if (lesson && onStartSession) {
+                      const normalizedLessonCues = normalizeCuesForSpeakingLanguage(
+                        lesson.cues || [],
+                        lesson.language || 'vi',
+                        config.language
+                      );
                       onStartSession({
                          topic: lesson.topic,
                          level: lesson.level || 'Easy',
-                         language: lesson.language || 'vi',
+                         language: config.language,
+                         wordType: lesson.wordType || config.wordType || 'Bất kỳ',
                          duration: config.duration,
                          mode: lesson.type || 'emotion',
-                         count: lesson.cues?.length || 0
-                      }, activeTtsMode, lesson.cues || []);
+                         playbackMode: config.playbackMode || 'once',
+                         count: normalizedLessonCues.length || 0
+                      }, activeTtsMode, normalizedLessonCues);
                    }
                 }}
               >
@@ -758,6 +857,10 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           <div className={`border px-2.5 py-1 rounded-lg flex items-center gap-1 ${pillBg}`}>
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
             <span>Language: <strong className={titleColor}>{config.language}</strong></span>
+          </div>
+          <div className={`border px-2.5 py-1 rounded-lg flex items-center gap-1 ${pillBg}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span>Run: <strong className={titleColor}>{playbackModeLabels[config.playbackMode || 'once']}</strong></span>
           </div>
         </div>
 
@@ -796,7 +899,14 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           </button>
 
           <button 
-            onClick={() => setIsAudioMuted(!isAudioMuted)}
+            onClick={() => {
+              if (!isAudioMuted) {
+                ttsRequestSeqRef.current += 1;
+                stopCurrentSpeech(true);
+                setTtsLoading(false);
+              }
+              setIsAudioMuted(prev => !prev);
+            }}
             className={`p-1.5 rounded-lg transition-all cursor-pointer ${
               isAudioMuted 
                 ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20' 
@@ -872,14 +982,24 @@ export default function StagePresenter({ config, ttsMode, initialCues, nineRoute
           {/* Background Flags (Language Switches) */}
           <div className="absolute top-4 xl:top-6 right-6 xl:right-8 z-50 flex flex-col xl:flex-row items-center gap-1.5 md:gap-2">
             <button 
-              onClick={() => setLanguageInverted(config.language === 'en')} 
+              onClick={() => {
+                ttsRequestSeqRef.current += 1;
+                stopCurrentSpeech(true);
+                setTtsLoading(false);
+                setLanguageInverted(config.language === 'en');
+              }} 
               className={`hover:scale-110 transition-all ${(!languageInverted && config.language === 'vi') || (languageInverted && config.language === 'en') ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'opacity-40 saturate-50 hover:opacity-80'}`}
               title="Vietnamese"
             >
               <img src="https://flagcdn.com/w80/vn.png" alt="VN" className="w-[44px] md:w-[50px] h-[34px] md:h-[38px] object-cover rounded-sm border border-black/10 shadow-sm" />
             </button>
             <button 
-              onClick={() => setLanguageInverted(config.language === 'vi')} 
+              onClick={() => {
+                ttsRequestSeqRef.current += 1;
+                stopCurrentSpeech(true);
+                setTtsLoading(false);
+                setLanguageInverted(config.language === 'vi');
+              }} 
               className={`hover:scale-110 transition-all ${(!languageInverted && config.language === 'en') || (languageInverted && config.language === 'vi') ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'opacity-40 saturate-50 hover:opacity-80'}`}
               title="English"
             >
