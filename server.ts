@@ -18,6 +18,44 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Lazy-loaded GoogleGenAI Helper
 let aiClient: GoogleGenAI | null = null;
+
+function normalizeNineRouterApiBase(url: string = "http://localhost:20128") {
+  const trimmed = url.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
+function isLoopbackNineRouterUrl(url?: string) {
+  if (!url) return true;
+  return /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(url.trim());
+}
+
+function getEnvNineRouterConfig() {
+  const url = process.env.NINE_ROUTER_URL;
+  if (!url) return null;
+  return {
+    enabled: process.env.NINE_ROUTER_ENABLED !== "false",
+    url,
+    apiKey: process.env.NINE_ROUTER_API_KEY || "",
+    llmModel: process.env.NINE_ROUTER_LLM_MODEL || "lucy",
+    sttModel: process.env.NINE_ROUTER_STT_MODEL || "openai/whisper-1",
+    ttsModelVi: process.env.NINE_ROUTER_TTS_MODEL_VI || "edge-tts/vi-VN-HoaiMyNeural",
+    ttsModelEn: process.env.NINE_ROUTER_TTS_MODEL_EN || "edge-tts/en-US-AriaNeural"
+  };
+}
+
+function resolveNineRouterConfig(incoming?: any) {
+  const envConfig = getEnvNineRouterConfig();
+  if (!incoming || !incoming.enabled) return envConfig || incoming;
+
+  // In production, browser defaults like localhost point to the user's device, not Cloud Run.
+  // Use Cloud Run's shared 9Router config when the incoming config is local/default/incomplete.
+  if (envConfig && (isLoopbackNineRouterUrl(incoming.url) || !incoming.apiKey)) {
+    return { ...envConfig, enabled: true };
+  }
+
+  return incoming;
+}
+
 function getAIClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
@@ -294,23 +332,24 @@ Ensure outputs are educational, appropriate, totally random, and avoid dry gener
 Besides 'cues', you must also generate a 'suggestedSlug' string representing the lesson name translated into English components separated by hyphens. Format: "[theme]-[wordType]-[difficulty]". For example, "life-nouns-easy", "animals-verbs-medium", "space-questions-hard", "daily-sentences-easy".`;
 
   // Check 9Router Pathway first, allowing use without standard Gemini Key
-  if (nineRouterConfig && nineRouterConfig.enabled) {
+  const cueNineRouterConfig = resolveNineRouterConfig(nineRouterConfig);
+  if (cueNineRouterConfig && cueNineRouterConfig.enabled) {
     try {
-      const baseUrl = nineRouterConfig.url || "http://localhost:20128";
+      const apiBaseUrl = normalizeNineRouterApiBase(cueNineRouterConfig.url || "http://localhost:20128");
       const headers: Record<string, string> = {
         "Content-Type": "application/json"
       };
-      if (nineRouterConfig.apiKey) {
-        headers["Authorization"] = `Bearer ${nineRouterConfig.apiKey}`;
+      if (cueNineRouterConfig.apiKey) {
+        headers["Authorization"] = `Bearer ${cueNineRouterConfig.apiKey}`;
       }
 
-      console.log(`Routing cue generation to 9Router (${baseUrl}) using LLM model: ${nineRouterConfig.llmModel}`);
+      console.log(`Routing cue generation to 9Router (${apiBaseUrl}) using LLM model: ${cueNineRouterConfig.llmModel}`);
 
-      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      const response = await fetch(`${apiBaseUrl}/chat/completions`, {
         method: "POST",
         headers,
         body: JSON.stringify({
-          model: nineRouterConfig.llmModel || "openai/gpt-4o",
+          model: cueNineRouterConfig.llmModel || "lucy",
           messages: [
             {
               role: "system",
@@ -347,7 +386,7 @@ Besides 'cues', you must also generate a 'suggestedSlug' string representing the
         translation: cue.translation
       }));
 
-      return res.json({ cues: processedCues, suggestedSlug: data.suggestedSlug || null, source: `9router-${nineRouterConfig.llmModel}` });
+      return res.json({ cues: processedCues, suggestedSlug: data.suggestedSlug || null, source: `9router-${cueNineRouterConfig.llmModel}` });
     } catch (err: any) {
       console.warn("Failed to generate cues using 9Router API:", err.message);
       if (isOneSyllableRequest) {
@@ -473,7 +512,7 @@ app.post("/api/stt", upload.single("file"), async (req, res) => {
     const { nineRouterConfig: rawConfig, language } = req.body;
     let config;
     try {
-      config = rawConfig ? JSON.parse(rawConfig) : null;
+      config = resolveNineRouterConfig(rawConfig ? JSON.parse(rawConfig) : null);
     } catch (e) {
       return res.status(400).json({ error: "Invalid nineRouterConfig parameter." });
     }
@@ -482,7 +521,7 @@ app.post("/api/stt", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "9Router must be configured and enabled for STT support." });
     }
 
-    const baseUrl = config.url || "http://localhost:20128";
+    const baseUrl = normalizeNineRouterApiBase(config.url || "http://localhost:20128");
     const sttModel = config.sttModel || "openai/whisper-1";
 
     console.log(`STT proxy routing to 9Router (${baseUrl}) with model: ${sttModel}`);
@@ -503,7 +542,7 @@ app.post("/api/stt", upload.single("file"), async (req, res) => {
       headers["Authorization"] = `Bearer ${config.apiKey}`;
     }
 
-    const response = await fetch(`${baseUrl}/v1/audio/transcriptions`, {
+    const response = await fetch(`${baseUrl}/audio/transcriptions`, {
       method: "POST",
       headers,
       body: formData
@@ -531,13 +570,13 @@ app.post("/api/stt/analyze", async (req, res) => {
       return res.status(400).json({ error: "transcribedText is required." });
     }
 
-    let config = nineRouterConfig;
+    let config = resolveNineRouterConfig(nineRouterConfig);
     if (!config || !config.enabled) {
       return res.status(400).json({ error: "9Router must be configured and enabled for Analysis support." });
     }
 
-    const baseUrl = config.url || "http://localhost:20128";
-    const llmModel = config.llmModel || "openai/gpt-4o";
+    const baseUrl = normalizeNineRouterApiBase(config.url || "http://localhost:20128");
+    const llmModel = config.llmModel || "lucy";
 
     console.log(`LLM Analysis proxy routing to 9Router (${baseUrl}) with model: ${llmModel}`);
 
@@ -568,7 +607,7 @@ Keep the advice very short (max 4 sentences), using highly energetic, warm langu
       headers["Authorization"] = `Bearer ${config.apiKey}`;
     }
 
-    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -600,14 +639,15 @@ Keep the advice very short (max 4 sentences), using highly energetic, warm langu
 app.post("/api/9router/test", async (req, res) => {
   try {
     const { url, apiKey } = req.body;
-    const baseUrl = url || "http://localhost:20128";
+    const config = resolveNineRouterConfig({ enabled: true, url, apiKey });
+    const baseUrl = normalizeNineRouterApiBase(config?.url || "http://localhost:20128");
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
     };
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
+    if (config?.apiKey) {
+      headers["Authorization"] = `Bearer ${config.apiKey}`;
     }
-    const response = await fetch(`${baseUrl}/v1/models`, {
+    const response = await fetch(`${baseUrl}/models`, {
       method: "GET",
       headers
     });
@@ -625,6 +665,7 @@ app.post("/api/9router/test", async (req, res) => {
 // API: System status telemetry check
 app.get("/api/status", (req, res) => {
   const hasGeminiKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY";
+  const envNineRouterConfig = getEnvNineRouterConfig();
   let lessonCount = 0;
   try {
     const lessons = readLessonsDb();
@@ -636,7 +677,10 @@ app.get("/api/status", (req, res) => {
     geminiKeyConfigured: hasGeminiKey,
     lessonCount,
     nodeVersion: process.version,
-    env: process.env.NODE_ENV || "development"
+    env: process.env.NODE_ENV || "development",
+    nineRouterConfigured: !!envNineRouterConfig,
+    nineRouterUrl: envNineRouterConfig ? normalizeNineRouterApiBase(envNineRouterConfig.url).replace(/\/v1$/, "") : null,
+    nineRouterModel: envNineRouterConfig?.llmModel || null
   });
 });
 
@@ -683,21 +727,22 @@ async function generateAudioBase64(text: string, language: string, nineRouterCon
   if (!text) return null;
 
   // Try 9Router if enabled
-  if (nineRouterConfig && nineRouterConfig.enabled) {
+  const resolvedNineRouterConfig = resolveNineRouterConfig(nineRouterConfig);
+  if (resolvedNineRouterConfig && resolvedNineRouterConfig.enabled) {
     try {
-      const baseUrl = nineRouterConfig.url || "http://localhost:20128";
+      const baseUrl = normalizeNineRouterApiBase(resolvedNineRouterConfig.url || "http://localhost:20128");
       const model = language === "en"
-        ? (nineRouterConfig.ttsModelEn || "edge-tts/en-US-AriaNeural")
-        : (nineRouterConfig.ttsModelVi || "edge-tts/vi-VN-HoaiMyNeural");
+        ? (resolvedNineRouterConfig.ttsModelEn || "edge-tts/en-US-AriaNeural")
+        : (resolvedNineRouterConfig.ttsModelVi || "edge-tts/vi-VN-HoaiMyNeural");
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json"
       };
-      if (nineRouterConfig.apiKey) {
-        headers["Authorization"] = `Bearer ${nineRouterConfig.apiKey}`;
+      if (resolvedNineRouterConfig.apiKey) {
+        headers["Authorization"] = `Bearer ${resolvedNineRouterConfig.apiKey}`;
       }
 
-      const response = await fetch(`${baseUrl}/v1/audio/speech?response_format=json`, {
+      const response = await fetch(`${baseUrl}/audio/speech?response_format=json`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -1010,25 +1055,26 @@ app.post("/api/tts", async (req, res) => {
 
   // Handle 9Router option if chosen or enabled
   if (ttsMode === "9router") {
-    if (!nineRouterConfig || !nineRouterConfig.url) {
+    const resolvedNineRouterConfig = resolveNineRouterConfig(nineRouterConfig);
+    if (!resolvedNineRouterConfig || !resolvedNineRouterConfig.url) {
       return res.status(400).json({ error: "9Router URL configuration is required for 9Router Speech synthesis." });
     }
     try {
-      const baseUrl = nineRouterConfig.url || "http://localhost:20128";
+      const baseUrl = normalizeNineRouterApiBase(resolvedNineRouterConfig.url || "http://localhost:20128");
       const model = language === "en"
-        ? (nineRouterConfig.ttsModelEn || "edge-tts/en-US-AriaNeural")
-        : (nineRouterConfig.ttsModelVi || "edge-tts/vi-VN-HoaiMyNeural");
+        ? (resolvedNineRouterConfig.ttsModelEn || "edge-tts/en-US-AriaNeural")
+        : (resolvedNineRouterConfig.ttsModelVi || "edge-tts/vi-VN-HoaiMyNeural");
 
       console.log(`TTS proxy routing to 9Router (${baseUrl}) using model: ${model}`);
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json"
       };
-      if (nineRouterConfig.apiKey) {
-        headers["Authorization"] = `Bearer ${nineRouterConfig.apiKey}`;
+      if (resolvedNineRouterConfig.apiKey) {
+        headers["Authorization"] = `Bearer ${resolvedNineRouterConfig.apiKey}`;
       }
 
-      const response = await fetch(`${baseUrl}/v1/audio/speech?response_format=json`, {
+      const response = await fetch(`${baseUrl}/audio/speech?response_format=json`, {
         method: "POST",
         headers,
         body: JSON.stringify({
