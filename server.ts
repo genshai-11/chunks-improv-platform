@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { Storage } from "@google-cloud/storage";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import multer from "multer";
@@ -662,13 +663,81 @@ app.post("/api/9router/test", async (req, res) => {
   }
 });
 
+// Database Lessons file path
+const LESSONS_FILE = path.join(process.cwd(), "lessons_db.json");
+const LESSONS_GCS_BUCKET = process.env.LESSONS_GCS_BUCKET || "";
+const LESSONS_GCS_FILE = process.env.LESSONS_GCS_FILE || "lessons_db.json";
+const storage = LESSONS_GCS_BUCKET ? new Storage() : null;
+
+// Default initial preset lessons (Motion, Sound, Emotion)
+const INITIAL_PRESET_LESSONS: any[] = [];
+
+async function readLocalLessonsDb() {
+  if (!fs.existsSync(LESSONS_FILE)) {
+    fs.writeFileSync(LESSONS_FILE, JSON.stringify(INITIAL_PRESET_LESSONS, null, 2), "utf8");
+    return INITIAL_PRESET_LESSONS;
+  }
+  const data = fs.readFileSync(LESSONS_FILE, "utf8");
+  return JSON.parse(data);
+}
+
+async function writeLocalLessonsDb(data: any) {
+  fs.writeFileSync(LESSONS_FILE, JSON.stringify(data, null, 2), "utf8");
+  return true;
+}
+
+// Helper to read database safely. Uses GCS in production when LESSONS_GCS_BUCKET is configured.
+async function readLessonsDb() {
+  try {
+    if (storage && LESSONS_GCS_BUCKET) {
+      const file = storage.bucket(LESSONS_GCS_BUCKET).file(LESSONS_GCS_FILE);
+      try {
+        const [contents] = await file.download();
+        return JSON.parse(contents.toString("utf8"));
+      } catch (err: any) {
+        if (err?.code === 404) {
+          await file.save(JSON.stringify(INITIAL_PRESET_LESSONS, null, 2), {
+            contentType: "application/json",
+            resumable: false
+          });
+          return INITIAL_PRESET_LESSONS;
+        }
+        throw err;
+      }
+    }
+    return await readLocalLessonsDb();
+  } catch (err: any) {
+    console.warn("Error reading lessons database:", err.message);
+    return INITIAL_PRESET_LESSONS;
+  }
+}
+
+// Helper to write database safely. Uses GCS in production when LESSONS_GCS_BUCKET is configured.
+async function writeLessonsDb(data: any) {
+  try {
+    if (storage && LESSONS_GCS_BUCKET) {
+      const file = storage.bucket(LESSONS_GCS_BUCKET).file(LESSONS_GCS_FILE);
+      await file.save(JSON.stringify(data, null, 2), {
+        contentType: "application/json",
+        resumable: false,
+        metadata: { cacheControl: "no-store" }
+      });
+      return true;
+    }
+    return await writeLocalLessonsDb(data);
+  } catch (err: any) {
+    console.warn("Error writing lessons database:", err.message);
+    return false;
+  }
+}
+
 // API: System status telemetry check
-app.get("/api/status", (req, res) => {
+app.get("/api/status", async (req, res) => {
   const hasGeminiKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY";
   const envNineRouterConfig = getEnvNineRouterConfig();
   let lessonCount = 0;
   try {
-    const lessons = readLessonsDb();
+    const lessons = await readLessonsDb();
     lessonCount = Array.isArray(lessons) ? lessons.length : 0;
   } catch (e) {}
 
@@ -680,45 +749,16 @@ app.get("/api/status", (req, res) => {
     env: process.env.NODE_ENV || "development",
     nineRouterConfigured: !!envNineRouterConfig,
     nineRouterUrl: envNineRouterConfig ? normalizeNineRouterApiBase(envNineRouterConfig.url).replace(/\/v1$/, "") : null,
-    nineRouterModel: envNineRouterConfig?.llmModel || null
+    nineRouterModel: envNineRouterConfig?.llmModel || null,
+    lessonsStorage: LESSONS_GCS_BUCKET ? "gcs" : "local",
+    lessonsBucket: LESSONS_GCS_BUCKET || null,
+    lessonsFile: LESSONS_GCS_FILE
   });
 });
 
-// Database Lessons file path
-const LESSONS_FILE = path.join(process.cwd(), "lessons_db.json");
-
-// Default initial preset lessons (Motion, Sound, Emotion)
-const INITIAL_PRESET_LESSONS: any[] = [];
-
-// Helper to read database safely
-function readLessonsDb() {
-  try {
-    if (!fs.existsSync(LESSONS_FILE)) {
-      fs.writeFileSync(LESSONS_FILE, JSON.stringify(INITIAL_PRESET_LESSONS, null, 2), "utf8");
-      return INITIAL_PRESET_LESSONS;
-    }
-    const data = fs.readFileSync(LESSONS_FILE, "utf8");
-    return JSON.parse(data);
-  } catch (err: any) {
-    console.warn("Error reading lessons database file:", err.message);
-    return INITIAL_PRESET_LESSONS;
-  }
-}
-
-// Helper to write database safely
-function writeLessonsDb(data: any) {
-  try {
-    fs.writeFileSync(LESSONS_FILE, JSON.stringify(data, null, 2), "utf8");
-    return true;
-  } catch (err: any) {
-    console.warn("Error writing lessons database file:", err.message);
-    return false;
-  }
-}
-
 // API: Get all custom & preset lessons
-app.get("/api/lessons", (req, res) => {
-  const data = readLessonsDb();
+app.get("/api/lessons", async (req, res) => {
+  const data = await readLessonsDb();
   res.json(data);
 });
 
@@ -814,7 +854,7 @@ app.post("/api/lessons", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields (topic, type, cues)" });
   }
 
-  const lessons = readLessonsDb();
+  const lessons = await readLessonsDb();
   const lessonId = id || `lesson-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   
   // Clone cues to ensure local safety
@@ -839,14 +879,14 @@ app.post("/api/lessons", async (req, res) => {
     lessons.push(newLesson);
   }
 
-  writeLessonsDb(lessons);
+  await writeLessonsDb(lessons);
   res.json({ success: true, lesson: newLesson });
 });
 
 // API: Seed Default sample lessons with customized Audio
 app.post("/api/lessons/seed", async (req, res) => {
   const { nineRouterConfig } = req.body;
-  const lessons = readLessonsDb();
+  const lessons = await readLessonsDb();
 
   const seedLessons = [
     {
@@ -912,7 +952,7 @@ app.post("/api/lessons/seed", async (req, res) => {
   }
 
   if (addedCount > 0) {
-    writeLessonsDb(lessons);
+    await writeLessonsDb(lessons);
   }
 
   res.json({ success: true, seededCount: addedCount, total: lessons.length });
@@ -921,24 +961,24 @@ app.post("/api/lessons/seed", async (req, res) => {
 // API: Delete custom lesson
 
 // API: Delete custom lesson
-app.delete("/api/lessons/:id", (req, res) => {
+app.delete("/api/lessons/:id", async (req, res) => {
   const { id } = req.params;
-  const lessons = readLessonsDb();
+  const lessons = await readLessonsDb();
   const filtered = lessons.filter((l: any) => l.id !== id);
-  writeLessonsDb(filtered);
+  await writeLessonsDb(filtered);
   res.json({ success: true, idDeleted: id });
 });
 
 // API: Update custom lesson
-app.put("/api/lessons/:id", (req, res) => {
+app.put("/api/lessons/:id", async (req, res) => {
   const { id } = req.params;
   const { topic, cues } = req.body;
-  const lessons = readLessonsDb();
+  const lessons = await readLessonsDb();
   const lessonIndex = lessons.findIndex((l: any) => l.id === id);
   if (lessonIndex > -1) {
     if (topic) lessons[lessonIndex].topic = topic;
     if (cues !== undefined) lessons[lessonIndex].cues = cues;
-    writeLessonsDb(lessons);
+    await writeLessonsDb(lessons);
     res.json({ success: true, updatedLesson: lessons[lessonIndex] });
   } else {
     res.status(404).json({ error: "Lesson not found" });
@@ -949,7 +989,7 @@ app.put("/api/lessons/:id", (req, res) => {
 app.post("/api/lessons/:id/generate-audio", async (req, res) => {
   const { id } = req.params;
   const { nineRouterConfig } = req.body;
-  const lessons = readLessonsDb();
+  const lessons = await readLessonsDb();
   const lessonIndex = lessons.findIndex((l: any) => l.id === id);
   
   if (lessonIndex === -1) {
@@ -1001,7 +1041,7 @@ app.post("/api/lessons/:id/generate-audio", async (req, res) => {
 
   if (generatedCount > 0) {
     lessons[lessonIndex] = lesson;
-    writeLessonsDb(lessons);
+    await writeLessonsDb(lessons);
   }
 
   res.json({
@@ -1152,7 +1192,7 @@ app.post("/api/tts", async (req, res) => {
 async function startServer() {
   // Auto-seed if database is currently empty (Zero configuration initialization!)
   try {
-    const lessons = readLessonsDb();
+    const lessons = await readLessonsDb();
     if (lessons.length === 0) {
       console.log("lessons_db.json is empty. Auto-seeding default Words List collections...");
       const seedLessons = [
@@ -1185,7 +1225,7 @@ async function startServer() {
           ]
         }
       ];
-      writeLessonsDb(seedLessons);
+      await writeLessonsDb(seedLessons);
     }
   } catch (e: any) {
     console.warn("Error auto-seeding Database on starup:", e.message);
